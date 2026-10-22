@@ -9,6 +9,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -16,7 +19,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.UUID;
 
-public class ArchitectNPCManager {
+public class ArchitectNPCManager implements Listener {
 
     private final ConstructorFeticraftPlugin plugin;
     private final NamespacedKey npcKey;
@@ -27,6 +30,7 @@ public class ArchitectNPCManager {
         this.plugin = plugin;
         this.npcKey = new NamespacedKey(plugin, "architect_npc");
         loadNPCConfig();
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     private void loadNPCConfig() {
@@ -38,14 +42,12 @@ public class ArchitectNPCManager {
     }
 
     public void spawnArchitect(Location loc) {
-        removeArchitect(); // Eliminar anterior si existe
+        removeArchitect();
 
-        // Cargar el chunk de forma síncrona
         if (!loc.getChunk().isLoaded()) {
             loc.getChunk().load();
         }
 
-        // Spawn con razón CUSTOM para sobrepasar restricciones de WorldGuard / LederProtections
         Villager villager = loc.getWorld().spawn(loc, Villager.class, CreatureSpawnEvent.SpawnReason.CUSTOM, entity -> {
             entity.setProfession(Villager.Profession.MASON);
             entity.setVillagerType(Villager.Type.PLAINS);
@@ -57,13 +59,19 @@ public class ArchitectNPCManager {
             entity.setRemoveWhenFarAway(false);
             entity.setPersistent(true);
 
-            // Marcar la entidad con PDC propia
             entity.getPersistentDataContainer().set(npcKey, PersistentDataType.BYTE, (byte) 1);
         });
 
-        // Guardar persistencia
         saveNPCToConfig(loc, villager.getUniqueId());
-        plugin.getLogger().info("NPC Arquitecto propio creado con éxito en: " + loc.getX() + ", " + loc.getY() + ", " + loc.getZ());
+        plugin.getLogger().info("NPC Arquitecto creado en: " + loc.getX() + ", " + loc.getY() + ", " + loc.getZ());
+    }
+
+    // Desbloquear el spawn en zonas protegidas si la entidad es nuestro NPC
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (isArchitect(event.getEntity())) {
+            event.setCancelled(false); // Anula la cancelación de WorldGuard / LederProtections
+        }
     }
 
     public void removeArchitect() {
