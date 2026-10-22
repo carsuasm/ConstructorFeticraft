@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -14,6 +15,8 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+
+import java.io.File;
 
 public class SelectionListener implements Listener {
 
@@ -44,12 +47,28 @@ public class SelectionListener implements Listener {
             if (clickedBlock == null) return;
 
             Location baseLoc = clickedBlock.getLocation().add(0, 1, 0);
+            String idDiseno = item.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
 
-            // Iniciar animación de partículas durante 10 segundos (200 ticks)
-            startParticleTask(player, baseLoc, 5, 5, 4, 10);
+            // Leer dimensiones reales desde catalogo.yml (con un tamaño generoso por defecto si no se encuentran)
+            int width = 12;   // Ancho predeterminado grande para una casa
+            int length = 12;  // Largo predeterminado grande
+            int height = 8;   // Altura de 2 pisos / techos altos
+
+            File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
+            if (catalogFile.exists()) {
+                YamlConfiguration catalog = YamlConfiguration.loadConfiguration(catalogFile);
+                if (catalog.contains("disenos." + idDiseno)) {
+                    width = catalog.getInt("disenos." + idDiseno + ".dimensiones.ancho", 12);
+                    length = catalog.getInt("disenos." + idDiseno + ".dimensiones.largo", 12);
+                    height = catalog.getInt("disenos." + idDiseno + ".dimensiones.alto", 8);
+                }
+            }
+
+            // Iniciar animación de partículas grandes durante 15 segundos
+            startParticleTask(player, baseLoc, width, length, height, 15);
 
             player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Ubicación de la obra fijada!");
-            player.sendMessage(ChatColor.YELLOW + "El perímetro estará marcado con partículas durante 10 segundos.");
+            player.sendMessage(ChatColor.YELLOW + "Mostrando perímetro de la casa (" + width + "x" + length + "x" + height + ") durante 15 segundos.");
 
             // Retirar herramienta de marcado
             player.getInventory().removeItem(item);
@@ -68,15 +87,28 @@ public class SelectionListener implements Listener {
                     return;
                 }
 
-                for (double x = 0; x <= width; x += 0.5) {
-                    for (double z = 0; z <= length; z += 0.5) {
+                // Dibujar aristas y contorno con separación fluida
+                for (double x = 0; x <= width; x += 1.0) {
+                    for (double z = 0; z <= length; z += 1.0) {
+                        // Solo los bordes externos para formar el cubo/perímetro de la casa
                         if (x == 0 || x == width || z == 0 || z == length) {
+                            // Suelo y esquinas inferiores
                             player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, 0.1, z), 1, 0, 0, 0, 0);
+                            // Techo y esquinas superiores
                             player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, height, z), 1, 0, 0, 0, 0);
                         }
                     }
                 }
-                ticksRun += 10; // Dibujar cada medio segundo
+
+                // Dibujar pilares en las 4 esquinas verticales para marcar la altura claramente
+                for (double y = 0; y <= height; y += 1.0) {
+                    player.spawnParticle(Particle.FLAME, corner.clone().add(0, y, 0), 1, 0, 0, 0, 0);
+                    player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, 0), 1, 0, 0, 0, 0);
+                    player.spawnParticle(Particle.FLAME, corner.clone().add(0, y, length), 1, 0, 0, 0, 0);
+                    player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, length), 1, 0, 0, 0, 0);
+                }
+
+                ticksRun += 10; // Actualizar cada medio segundo
             }
         }.runTaskTimer(plugin, 0L, 10L);
     }
