@@ -29,9 +29,11 @@ public class CatalogMenu implements Listener {
         CatalogMenu.plugin = plugin;
     }
 
-    // Sobrecarga para admitir tanto openCatalog(player) como openCatalog(plugin, player)
+    // Métodos openCatalog para compatibilidad (tanto con (player) como con (plugin, player))
     public static void openCatalog(Player player) {
-        openCatalog(plugin, player);
+        if (plugin != null) {
+            openCatalog(plugin, player);
+        }
     }
 
     public static void openCatalog(ConstructorFeticraftPlugin pl, Player player) {
@@ -97,10 +99,11 @@ public class CatalogMenu implements Listener {
             nombreDiseno = catalog.getString("disenos." + idDiseno + ".nombre", idDiseno);
         }
 
+        // Cobrar con Vault
         Economy econ = plugin.getEconomy();
         if (econ != null) {
             if (econ.has(player, precio)) {
-                econ.withdrawPlayer(player, precio); // Cobro mediante Vault
+                econ.withdrawPlayer(player, precio);
                 player.sendMessage(ChatColor.GREEN + "¡Has comprado el diseño '" + nombreDiseno + "' por " + precio + " monedas!");
             } else {
                 player.sendMessage(ChatColor.RED + "[Arquitecto] No tienes suficiente dinero para comprar este diseño.");
@@ -109,6 +112,7 @@ public class CatalogMenu implements Listener {
             }
         }
 
+        // Entregar la pluma del arquitecto configurada
         ItemStack feather = new ItemStack(Material.FEATHER);
         ItemMeta featherMeta = feather.getItemMeta();
         if (featherMeta != null) {
