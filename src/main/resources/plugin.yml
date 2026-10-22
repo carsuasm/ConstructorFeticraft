@@ -1,0 +1,25 @@
+name: ConstructorFeticraft
+version: 1.0.0
+main: com.feticraft.constructor.ConstructorFeticraftPlugin
+api-version: '1.21'
+author: Feticraft
+description: Plugin de construcciones automáticas mediante NPC propio para Feticraft.
+softdepend:
+  - Vault
+  - WorldGuard
+  - WorldEdit
+  - LederProtections
+
+commands:
+  constructor:
+    description: Comando principal del plugin Constructor de Feticraft
+    permission: constructor.admin
+    usage: /constructor <crear|eliminar|mover|recargar|obras|ayuda>
+
+permissions:
+  constructor.admin:
+    description: Permite administrar el plugin Constructor de Feticraft
+    default: op
+  constructor.user:
+    description: Permite a los jugadores interactuar con el NPC y contratar construcciones
+    default: true
