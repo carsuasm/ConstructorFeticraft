@@ -74,7 +74,6 @@ public class BuildingExecutor {
         UUID uuid = player.getUniqueId();
         boolean cleaned = false;
 
-        // 1. Cancelar tarea activa de bloques si existe
         if (activeTasks.containsKey(uuid)) {
             activeTasks.get(uuid).cancel();
             activeTasks.remove(uuid);
@@ -83,7 +82,6 @@ public class BuildingExecutor {
 
         pausedPlayers.remove(uuid);
 
-        // 2. Remover NPC guardado en memoria
         Villager npc = activeNpcs.remove(uuid);
         if (npc != null) {
             if (npc.isValid()) {
@@ -92,7 +90,6 @@ public class BuildingExecutor {
             cleaned = true;
         }
 
-        // 3. Barrido de seguridad por si el servidor se reinició: busca aldeanos cercanos con el nombre del jugador
         for (org.bukkit.World world : player.getServer().getWorlds()) {
             for (Entity entity : world.getEntities()) {
                 if (entity instanceof Villager villager && villager.getCustomName() != null) {
@@ -123,7 +120,6 @@ public class BuildingExecutor {
                 return entry.getKey();
             }
         }
-        // Fallback por nombre si se reinició el servidor
         if (villager.getCustomName() != null) {
             for (Player p : villager.getServer().getOnlinePlayers()) {
                 if (villager.getCustomName().contains(p.getName())) {
@@ -284,12 +280,13 @@ public class BuildingExecutor {
 
                     Location targetLoc = startLoc.clone().add(x, y, z);
 
-                    if (mat != null && !mat.isAir()) {
+                    if (mat != null) {
                         Block block = targetLoc.getBlock();
                         if (!block.getChunk().isLoaded()) {
                             block.getChunk().load();
                         }
 
+                        // Reemplaza y destruye cualquier bloque anterior en el mundo
                         block.setType(mat, false);
 
                         Location npcPos = targetLoc.clone().add(1.2, 0, 1.2);
@@ -314,7 +311,8 @@ public class BuildingExecutor {
             }
         };
 
-        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 3L);
+        // Velocidad ajustada a 12L para que vaya más pausado y natural
+        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 12L);
         activeTasks.put(uuid, task);
     }
 }
