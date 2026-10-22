@@ -1,109 +1,119 @@
 package com.feticraft.constructor;
 
+import com.feticraft.constructor.builder.BuildingExecutor;
 import com.feticraft.constructor.gui.MenuListener;
-import com.feticraft.constructor.npc.ArchitectNPCManager;
-import com.feticraft.constructor.npc.NPCListener;
 import com.feticraft.constructor.selection.SelectionListener;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.List;
+import java.io.File;
 
-public final class ConstructorFeticraftPlugin extends JavaPlugin {
+public final class ConstructorFeticraftPlugin extends JavaPlugin implements CommandExecutor {
 
     private static ConstructorFeticraftPlugin instance;
-    private ArchitectNPCManager npcManager;
+    private Economy economy;
 
     @Override
     public void onEnable() {
         instance = this;
 
-        // Cargar/guardar configuraciones iniciales
+        // Guardar archivos por defecto
         saveDefaultConfig();
-        saveResource("catalogo.yml", false);
-        saveResource("npc.yml", false);
+        saveResourceIfNotExists("catalogo.yml");
+        saveResourceIfNotExists("npc.yml");
 
-        // Inicializar gestor de NPC y eventos
-        this.npcManager = new ArchitectNPCManager(this);
-        getServer().getPluginManager().registerEvents(new NPCListener(npcManager), this);
-        getServer().getPluginManager().registerEvents(new MenuListener(), this);
+        File disenosFolder = new File(getDataFolder(), "disenos/casas");
+        if (!disenosFolder.exists()) {
+            disenosFolder.mkdirs();
+        }
+
+        // Configurar Economía con Vault
+        if (!setupEconomy()) {
+            getLogger().warning("Vault no encontrado o sin plugin de economía compatible. Los cobros no funcionarán.");
+        } else {
+            getLogger().info("Vault conectado con éxito a ConstructorFeticraft.");
+        }
+
+        // Registrar Eventos de Listeners
+        getServer().getPluginManager().registerEvents(new MenuListener(this), this);
         getServer().getPluginManager().registerEvents(new SelectionListener(this), this);
 
-        getLogger().info(ChatColor.GREEN + "¡ConstructorFeticraft ha sido habilitado correctamente en Feticraft!");
+        // Registrar Comando
+        if (getCommand("constructor") != null) {
+            getCommand("constructor").setExecutor(this);
+        }
+
+        getLogger().info("ConstructorFeticraft habilitado correctamente.");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info(ChatColor.RED + "ConstructorFeticraft deshabilitado.");
+        getLogger().info("ConstructorFeticraft deshabilitado.");
     }
 
     public static ConstructorFeticraftPlugin getInstance() {
         return instance;
     }
 
-    public ArchitectNPCManager getNpcManager() {
-        return npcManager;
-    }
-
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!command.getName().equalsIgnoreCase("constructor")) {
+    private boolean setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
             return false;
         }
+        RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) {
+            return false;
+        }
+        economy = rsp.getProvider();
+        return economy != null;
+    }
 
-        if (args.length == 0 || args[0].equalsIgnoreCase("ayuda")) {
-            sender.sendMessage(ChatColor.GOLD + "=== Comandos de ConstructorFeticraft ===");
-            sender.sendMessage(ChatColor.YELLOW + "/constructor crear " + ChatColor.WHITE + "- Crea o recoloca al NPC arquitecto.");
-            sender.sendMessage(ChatColor.YELLOW + "/constructor eliminar " + ChatColor.WHITE + "- Elimina el NPC arquitecto.");
-            sender.sendMessage(ChatColor.YELLOW + "/constructor mover " + ChatColor.WHITE + "- Mueve el NPC a tu posición.");
-            sender.sendMessage(ChatColor.YELLOW + "/constructor recargar " + ChatColor.WHITE + "- Recarga la configuración.");
+    // ESTE ES EL MÉTODO QUE FALTABA Y DABA EL ERROR DE COMPILACIÓN:
+    public Economy getEconomy() {
+        return economy;
+    }
+
+    private void saveResourceIfNotExists(String resourcePath) {
+        File file = new File(getDataFolder(), resourcePath);
+        if (!file.exists()) {
+            saveResource(resourcePath, false);
+        }
+    }
+
+    // MANEJO DE COMANDOS (/constructor)
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            if (!sender.hasPermission("constructorfeticraft.admin")) {
+                sender.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
+                return true;
+            }
+            reloadConfig();
+            sender.sendMessage(ChatColor.GREEN + "[ConstructorFeticraft] Configuración recargada correctamente.");
             return true;
         }
 
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "Este comando solo lo pueden usar jugadores dentro del juego.");
+        if (args.length > 0 && (args[0].equalsIgnoreCase("cancelar") || args[0].equalsIgnoreCase("stop"))) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("Este comando solo lo puede usar un jugador.");
+                return true;
+            }
+
+            boolean cancelled = BuildingExecutor.cancelBuilding(player);
+            if (!cancelled) {
+                player.sendMessage(ChatColor.RED + "No tienes ninguna construcción en curso para cancelar.");
+            }
             return true;
         }
 
-        if (!player.hasPermission("constructor.admin")) {
-            player.sendMessage(ChatColor.RED + "No tienes permiso para ejecutar comandos administrativos de Constructor.");
-            return true;
-        }
-
-        // Validación de mundos permitidos desde config.yml
-        List<String> allowedWorlds = getConfig().getStringList("settings.allowed-worlds");
-        if (!allowedWorlds.isEmpty() && !allowedWorlds.contains(player.getWorld().getName())) {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', 
-                getConfig().getString("messages.prefix", "&8[&6Feticraft&8] &7") + 
-                "&cNo puedes usar este comando en este mundo. Solo está permitido en el mundo de supervivencia."
-            ));
-            return true;
-        }
-
-        switch (args[0].toLowerCase()) {
-            case "crear", "mover":
-                npcManager.spawnArchitect(player.getLocation());
-                player.sendMessage(ChatColor.GREEN + "¡El NPC Arquitecto Feticraft ha sido colocado en tu posición!");
-                break;
-
-            case "eliminar":
-                npcManager.removeArchitect();
-                player.sendMessage(ChatColor.RED + "El NPC Arquitecto ha sido eliminado del mapa.");
-                break;
-
-            case "recargar":
-                reloadConfig();
-                player.sendMessage(ChatColor.GREEN + "Configuración de ConstructorFeticraft recargada.");
-                break;
-
-            default:
-                player.sendMessage(ChatColor.RED + "Comando desconocido. Usa /constructor ayuda.");
-                break;
-        }
-
+        sender.sendMessage(ChatColor.GOLD + "--- ConstructorFeticraft ---");
+        sender.sendMessage(ChatColor.YELLOW + "/constructor reload " + ChatColor.WHITE + "- Recarga la configuración.");
+        sender.sendMessage(ChatColor.YELLOW + "/constructor cancelar " + ChatColor.WHITE + "- Detiene tu obra actual.");
         return true;
     }
 }
