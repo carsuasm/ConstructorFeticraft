@@ -3,63 +3,44 @@ package com.feticraft.constructor;
 import com.feticraft.constructor.builder.BuildingExecutor;
 import com.feticraft.constructor.gui.CatalogMenu;
 import com.feticraft.constructor.gui.MenuListener;
-import com.feticraft.constructor.selection.SelectionListener;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
-
 public final class ConstructorFeticraftPlugin extends JavaPlugin implements CommandExecutor {
 
-    private static ConstructorFeticraftPlugin instance;
-    private Economy economy;
+    private static Economy economy = null;
 
     @Override
     public void onEnable() {
-        instance = this;
-
-        // Guardar archivos por defecto
+        // Guardar configuración por defecto si no existe
         saveDefaultConfig();
-        saveResourceIfNotExists("catalogo.yml");
-        saveResourceIfNotExists("npc.yml");
 
-        File disenosFolder = new File(getDataFolder(), "disenos/casas");
-        if (!disenosFolder.exists()) {
-            disenosFolder.mkdirs();
-        }
-
-        // Configurar Economía con Vault
+        // Verificar e inicializar Vault para la economía
         if (!setupEconomy()) {
-            getLogger().warning("Vault no encontrado o sin plugin de economía compatible. Los cobros no funcionarán.");
+            getLogger().warning("¡Vault no encontrado o sin plugin de economía! El sistema de pago por construcciones estará desactivado.");
         } else {
-            getLogger().info("Vault conectado con éxito a ConstructorFeticraft.");
+            getLogger().info("¡Economía de Vault vinculada correctamente!");
         }
 
-        // Registrar Eventos de Listeners
-        getServer().getPluginManager().registerEvents(new MenuListener(this), this);
-        getServer().getPluginManager().registerEvents(new SelectionListener(this), this);
-
-        // Registrar Comando
+        // Registrar comandos y eventos
         if (getCommand("constructor") != null) {
             getCommand("constructor").setExecutor(this);
         }
+        getServer().getPluginManager().registerEvents(new MenuListener(this), this);
 
-        getLogger().info("ConstructorFeticraft habilitado correctamente.");
+        getLogger().info("ConstructorFeticraft ha sido habilitado correctamente.");
     }
 
     @Override
     public void onDisable() {
-        getLogger().info("ConstructorFeticraft deshabilitado.");
-    }
-
-    public static ConstructorFeticraftPlugin getInstance() {
-        return instance;
+        getLogger().info("ConstructorFeticraft ha sido deshabilitado.");
     }
 
     private boolean setupEconomy() {
@@ -78,14 +59,6 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
         return economy;
     }
 
-    private void saveResourceIfNotExists(String resourcePath) {
-        File file = new File(getDataFolder(), resourcePath);
-        if (!file.exists()) {
-            saveResource(resourcePath, false);
-        }
-    }
-
-    // MANEJO DE COMANDOS (/constructor)
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
@@ -93,6 +66,7 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
+        // Comando para recargar configuración (/constructor reload)
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("constructorfeticraft.admin")) {
                 player.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
@@ -103,7 +77,14 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        if (args.length > 0 && (args[0].equalsIgnoreCase("cancelar") || args[0].equalsIgnoreCase("stop"))) {
+        // Comando para pausar / reanudar (/constructor stop)
+        if (args.length > 0 && args[0].equalsIgnoreCase("stop")) {
+            BuildingExecutor.togglePause(player);
+            return true;
+        }
+
+        // Comando para cancelar la obra por completo y retirar al obrero (/constructor cancelar)
+        if (args.length > 0 && args[0].equalsIgnoreCase("cancelar")) {
             boolean cancelled = BuildingExecutor.cancelBuilding(player);
             if (!cancelled) {
                 player.sendMessage(ChatColor.RED + "No tienes ninguna construcción en curso para cancelar.");
@@ -111,7 +92,30 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        // Si pone /constructor sin argumentos, abre el catálogo directamente
+        // Comando para crear el NPC Arquitecto del spawn (/constructor crear)
+        if (args.length > 0 && args[0].equalsIgnoreCase("crear")) {
+            if (!player.hasPermission("constructorfeticraft.admin")) {
+                player.sendMessage(ChatColor.RED + "No tienes permisos para crear al Arquitecto.");
+                return true;
+            }
+
+            player.getWorld().spawn(player.getLocation(), Villager.class, villager -> {
+                villager.setProfession(Villager.Profession.LIBRARIAN);
+                villager.setVillagerType(Villager.Type.SNOW);
+                villager.setCustomName(ChatColor.GOLD + "Arquitecto Feticraft");
+                villager.setCustomNameVisible(true);
+                
+                villager.setAI(false);
+                villager.setInvulnerable(true);
+                villager.setCollidable(false);
+                villager.setSilent(true);
+            });
+
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Has creado al Arquitecto Feticraft en esta ubicación!");
+            return true;
+        }
+
+        // Si pones /constructor a secas, abre el catálogo visual
         CatalogMenu.openCatalog(player);
         return true;
     }
