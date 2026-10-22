@@ -19,14 +19,17 @@ import java.util.List;
 
 public class CatalogMenu {
 
-    public static final String MENU_TITLE = ChatColor.DARK_GRAY + "Catálogo de Construcciones";
+    public static final String MENU_TITLE = ChatColor.DARK_GREEN + "Catálogo de Construcciones";
 
-    public static void openMenu(ConstructorFeticraftPlugin plugin, Player player) {
-        Inventory gui = Bukkit.createInventory(null, 27, MENU_TITLE);
+    // Método que abre el inventario del catálogo al jugador
+    public static void openCatalog(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
 
+        ConstructorFeticraftPlugin plugin = ConstructorFeticraftPlugin.getInstance();
         File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
+        
         if (!catalogFile.exists()) {
-            player.sendMessage(ChatColor.RED + "Error: El catálogo de construcciones no está disponible.");
+            player.sendMessage(ChatColor.RED + "El archivo catalogo.yml no existe.");
             return;
         }
 
@@ -34,45 +37,47 @@ public class CatalogMenu {
         ConfigurationSection disenosSection = config.getConfigurationSection("disenos");
 
         if (disenosSection != null) {
-            int slot = 10;
+            int slot = 10; // Posición inicial en el inventario
             for (String key : disenosSection.getKeys(false)) {
-                if (slot > 16) break;
+                String name = disenosSection.getString(key + ".nombre", "Estructura");
+                double price = disenosSection.getDouble(key + ".precio", 0.0);
+                String desc = disenosSection.getString(key + ".descripcion", "Sin descripción.");
 
-                String nombre = disenosSection.getString(key + ".nombre", "Construcción");
-                String descripcion = disenosSection.getString(key + ".descripcion", "");
-                double precio = disenosSection.getDouble(key + ".precio", 0.0);
-                int ancho = disenosSection.getInt(key + ".dimensiones.ancho", 5);
-                int largo = disenosSection.getInt(key + ".dimensiones.largo", 5);
-                int alto = disenosSection.getInt(key + ".dimensiones.alto", 5);
+                // Asignar icono según categoría o diseño
+                Material mat = Material.OAK_DOOR;
+                if (key.contains("honeypot")) mat = Material.HONEYCOMB_BLOCK;
+                else if (key.contains("pumpkin")) mat = Material.PUMPKIN;
+                else if (key.contains("survival")) mat = Material.HAY_BLOCK;
+                else if (key.contains("granja")) mat = Material.WHEAT;
 
-                ItemStack item = new ItemStack(Material.OAK_DOOR);
+                ItemStack item = new ItemStack(mat);
                 ItemMeta meta = item.getItemMeta();
-
                 if (meta != null) {
-                    meta.setDisplayName(ChatColor.GOLD + "" + ChatColor.BOLD + nombre);
+                    meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
                     
                     List<String> lore = new ArrayList<>();
-                    lore.add(ChatColor.GRAY + descripcion);
+                    lore.add(ChatColor.GRAY + desc);
                     lore.add("");
-                    lore.add(ChatColor.YELLOW + "Dimensiones: " + ChatColor.WHITE + ancho + "x" + largo + "x" + alto);
-                    lore.add(ChatColor.GREEN + "Precio: " + ChatColor.WHITE + "$" + precio);
+                    lore.add(ChatColor.YELLOW + "Precio: " + ChatColor.GREEN + "$" + price);
                     lore.add("");
-                    lore.add(ChatColor.AQUA + "▶ Haz clic para seleccionar esta construcción");
-
+                    lore.add(ChatColor.AQUA + "▶ Haz clic para seleccionar");
+                    
                     meta.setLore(lore);
 
-                    // Guardar la KEY real del diseño (ej: choza, castillo, etc.) en el PDC del ítem
+                    // Guardar ID del diseño en el PersistentDataContainer
                     NamespacedKey catalogKey = new NamespacedKey(plugin, "catalog_building_key");
                     meta.getPersistentDataContainer().set(catalogKey, PersistentDataType.STRING, key);
 
                     item.setItemMeta(meta);
                 }
 
-                gui.setItem(slot, item);
-                slot += 2;
+                if (slot < 17) {
+                    inv.setItem(slot, item);
+                    slot++;
+                }
             }
         }
 
-        player.openInventory(gui);
+        player.openInventory(inv);
     }
 }
