@@ -4,12 +4,14 @@ import com.feticraft.constructor.ConstructorFeticraftPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -34,16 +36,15 @@ public class CatalogMenu {
         if (disenosSection != null) {
             int slot = 10;
             for (String key : disenosSection.getKeys(false)) {
-                if (slot > 16) break; // Límite de ítems por fila para vista limpia
+                if (slot > 16) break;
 
                 String nombre = disenosSection.getString(key + ".nombre", "Construcción");
                 String descripcion = disenosSection.getString(key + ".descripcion", "");
                 double precio = disenosSection.getDouble(key + ".precio", 0.0);
-                int ancho = disenosSection.getInt(key + ".dimensiones.ancho", 0);
-                int largo = disenosSection.getInt(key + ".dimensiones.largo", 0);
-                int alto = disenosSection.getInt(key + ".dimensiones.alto", 0);
+                int ancho = disenosSection.getInt(key + ".dimensiones.ancho", 5);
+                int largo = disenosSection.getInt(key + ".dimensiones.largo", 5);
+                int alto = disenosSection.getInt(key + ".dimensiones.alto", 5);
 
-                // Se utiliza OAK_DOOR para representar las edificaciones
                 ItemStack item = new ItemStack(Material.OAK_DOOR);
                 ItemMeta meta = item.getItemMeta();
 
@@ -59,11 +60,16 @@ public class CatalogMenu {
                     lore.add(ChatColor.AQUA + "▶ Haz clic para seleccionar esta construcción");
 
                     meta.setLore(lore);
+
+                    // Guardar la KEY real del diseño (ej: choza, castillo, etc.) en el PDC del ítem
+                    NamespacedKey catalogKey = new NamespacedKey(plugin, "catalog_building_key");
+                    meta.getPersistentDataContainer().set(catalogKey, PersistentDataType.STRING, key);
+
                     item.setItemMeta(meta);
                 }
 
                 gui.setItem(slot, item);
-                slot += 2; // Espaciado entre ítems
+                slot += 2;
             }
         }
 
