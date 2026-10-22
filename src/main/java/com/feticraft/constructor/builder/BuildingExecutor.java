@@ -17,6 +17,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
@@ -39,7 +40,7 @@ public class BuildingExecutor {
     private static final Set<UUID> pausedPlayers = new HashSet<>();
 
     public static boolean hasActiveBuilding(UUID playerUUID) {
-        return activeTasks.containsKey(playerUUID);
+        return activeTasks.containsKey(playerUUID) || activeNpcs.containsKey(playerUUID);
     }
 
     public static boolean isPaused(UUID playerUUID) {
@@ -53,7 +54,7 @@ public class BuildingExecutor {
         if (pausedPlayers.contains(uuid)) {
             pausedPlayers.remove(uuid);
             Villager npc = activeNpcs.get(uuid);
-            if (npc != null) {
+            if (npc != null && npc.isValid()) {
                 npc.setCustomName(ChatColor.YELLOW + "Obrero de " + player.getName());
             }
             player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "Construcción reanudada.");
@@ -61,7 +62,7 @@ public class BuildingExecutor {
         } else {
             pausedPlayers.add(uuid);
             Villager npc = activeNpcs.get(uuid);
-            if (npc != null) {
+            if (npc != null && npc.isValid()) {
                 npc.setCustomName(ChatColor.RED + "[EN PAUSA] Obrero de " + player.getName());
             }
             player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.YELLOW + "Construcción pausada.");
@@ -71,20 +72,44 @@ public class BuildingExecutor {
 
     public static boolean cancelBuilding(Player player) {
         UUID uuid = player.getUniqueId();
+        boolean cleaned = false;
+
+        // 1. Cancelar tarea activa de bloques si existe
         if (activeTasks.containsKey(uuid)) {
             activeTasks.get(uuid).cancel();
             activeTasks.remove(uuid);
-            pausedPlayers.remove(uuid);
+            cleaned = true;
+        }
 
-            Villager npc = activeNpcs.remove(uuid);
-            if (npc != null && npc.isValid()) {
+        pausedPlayers.remove(uuid);
+
+        // 2. Remover NPC guardado en memoria
+        Villager npc = activeNpcs.remove(uuid);
+        if (npc != null) {
+            if (npc.isValid()) {
                 npc.remove();
             }
+            cleaned = true;
+        }
 
-            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.RED + "Has cancelado la construcción activa.");
+        // 3. Barrido de seguridad por si el servidor se reinició: busca aldeanos cercanos con el nombre del jugador
+        for (org.bukkit.World world : player.getServer().getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                if (entity instanceof Villager villager && villager.getCustomName() != null) {
+                    if (villager.getCustomName().contains(player.getName())) {
+                        villager.remove();
+                        cleaned = true;
+                    }
+                }
+            }
+        }
+
+        if (cleaned) {
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.RED + "Has cancelado la construcción activa y eliminado al obrero.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             return true;
         }
+
         return false;
     }
 
@@ -98,6 +123,14 @@ public class BuildingExecutor {
                 return entry.getKey();
             }
         }
+        // Fallback por nombre si se reinició el servidor
+        if (villager.getCustomName() != null) {
+            for (Player p : villager.getServer().getOnlinePlayers()) {
+                if (villager.getCustomName().contains(p.getName())) {
+                    return p.getUniqueId();
+                }
+            }
+        }
         return null;
     }
 
@@ -105,7 +138,7 @@ public class BuildingExecutor {
         UUID uuid = player.getUniqueId();
 
         if (hasActiveBuilding(uuid)) {
-            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso.");
+            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor cancelar si deseas detenerla.");
             return;
         }
 
@@ -206,7 +239,6 @@ public class BuildingExecutor {
             int x = 0;
             int y = 0;
             int z = 0;
-            int processedBlocks = 0;
 
             @Override
             public void run() {
@@ -238,12 +270,10 @@ public class BuildingExecutor {
                         return;
                     }
 
-                    // Cálculo del porcentaje en tiempo real
                     int currentStepIndex = (y * maxX * maxZ) + (z * maxX) + x;
                     int percent = totalBlocks > 0 ? (currentStepIndex * 100) / totalBlocks : 100;
                     if (percent > 100) percent = 100;
 
-                    // Enviar porcentaje a la Action Bar (barra superior del inventario, solo para el jugador)
                     player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(
                             ChatColor.YELLOW + "🏗 Construyendo " + nombre + ": " + ChatColor.GREEN + percent + "%"
                     ));
