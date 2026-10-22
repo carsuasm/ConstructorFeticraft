@@ -25,17 +25,46 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class BuildingExecutor {
 
-    // Registro de tareas activas de construcción por UUID de jugador
     private static final Map<UUID, BukkitTask> activeTasks = new HashMap<>();
     private static final Map<UUID, Villager> activeNpcs = new HashMap<>();
+    private static final Set<UUID> pausedPlayers = new HashSet<>();
 
     public static boolean hasActiveBuilding(UUID playerUUID) {
         return activeTasks.containsKey(playerUUID);
+    }
+
+    public static boolean isPaused(UUID playerUUID) {
+        return pausedPlayers.contains(playerUUID);
+    }
+
+    public static void togglePause(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!hasActiveBuilding(uuid)) return;
+
+        if (pausedPlayers.contains(uuid)) {
+            pausedPlayers.remove(uuid);
+            Villager npc = activeNpcs.get(uuid);
+            if (npc != null) {
+                npc.setCustomName(ChatColor.YELLOW + "Obrero de " + player.getName());
+            }
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "Construcción reanudada.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1.0f, 1.0f);
+        } else {
+            pausedPlayers.add(uuid);
+            Villager npc = activeNpcs.get(uuid);
+            if (npc != null) {
+                npc.setCustomName(ChatColor.RED + "[EN PAUSA] Obrero de " + player.getName());
+            }
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.YELLOW + "Construcción pausada.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+        }
     }
 
     public static boolean cancelBuilding(Player player) {
@@ -43,6 +72,7 @@ public class BuildingExecutor {
         if (activeTasks.containsKey(uuid)) {
             activeTasks.get(uuid).cancel();
             activeTasks.remove(uuid);
+            pausedPlayers.remove(uuid);
 
             Villager npc = activeNpcs.remove(uuid);
             if (npc != null && npc.isValid()) {
@@ -56,11 +86,24 @@ public class BuildingExecutor {
         return false;
     }
 
+    public static Villager getNpcOfPlayer(UUID uuid) {
+        return activeNpcs.get(uuid);
+    }
+
+    public static UUID getOwnerOfNpc(Villager villager) {
+        for (Map.Entry<UUID, Villager> entry : activeNpcs.entrySet()) {
+            if (entry.getValue().equals(villager)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
     public static void buildStructure(ConstructorFeticraftPlugin plugin, Player player, Location startLoc, String buildingId) {
         UUID uuid = player.getUniqueId();
 
         if (hasActiveBuilding(uuid)) {
-            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor cancelar si quieres detenerla.");
+            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso.");
             return;
         }
 
@@ -103,14 +146,15 @@ public class BuildingExecutor {
         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡El obrero ha comenzado a construir " + nombre + "!");
         player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_WORK_MASON, 1.0f, 1.0f);
 
-        // 2. Spawn del Obrero fijado sin IA errática
+        // 2. Spawn del Obrero sin IA de trabajo
         Villager builderNpc = startLoc.getWorld().spawn(startLoc.clone().add(1, 0, 1), Villager.class, villager -> {
             villager.setProfession(Villager.Profession.MASON);
             villager.setVillagerType(Villager.Type.PLAINS);
             villager.setCustomName(ChatColor.YELLOW + "Obrero de " + player.getName());
             villager.setCustomNameVisible(true);
-            villager.setAI(false);
+            villager.setAI(false); // Desactiva IA completa (impide buscar mesas de trabajo o caminar)
             villager.setInvulnerable(true);
+            villager.setCollidable(false);
             villager.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_PICKAXE));
         });
 
@@ -165,7 +209,13 @@ public class BuildingExecutor {
                     if (builderNpc.isValid()) builderNpc.remove();
                     activeTasks.remove(uuid);
                     activeNpcs.remove(uuid);
+                    pausedPlayers.remove(uuid);
                     cancel();
+                    return;
+                }
+
+                // Si está en pausa, saltar el ciclo sin avanzar
+                if (pausedPlayers.contains(uuid)) {
                     return;
                 }
 
@@ -177,6 +227,7 @@ public class BuildingExecutor {
                         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                         activeTasks.remove(uuid);
                         activeNpcs.remove(uuid);
+                        pausedPlayers.remove(uuid);
                         cancel();
                         return;
                     }
