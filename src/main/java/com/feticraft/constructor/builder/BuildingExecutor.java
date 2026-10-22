@@ -8,6 +8,8 @@ import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
 import com.sk89q.worldedit.math.BlockVector3;
 import net.milkbowl.vault.economy.EconomyResponse;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -195,14 +197,16 @@ public class BuildingExecutor {
         BlockVector3 dimensions = clipboard.getDimensions();
         UUID uuid = player.getUniqueId();
 
+        final int maxX = dimensions.x();
+        final int maxY = dimensions.y();
+        final int maxZ = dimensions.z();
+        final int totalBlocks = maxX * maxY * maxZ;
+
         BukkitRunnable runnable = new BukkitRunnable() {
             int x = 0;
             int y = 0;
             int z = 0;
-
-            final int maxX = dimensions.x();
-            final int maxY = dimensions.y();
-            final int maxZ = dimensions.z();
+            int processedBlocks = 0;
 
             @Override
             public void run() {
@@ -216,6 +220,7 @@ public class BuildingExecutor {
                 }
 
                 if (pausedPlayers.contains(uuid)) {
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.RED + "⏸ Construcción PAUSADA (Shift+Click al obrero)"));
                     return;
                 }
 
@@ -223,6 +228,7 @@ public class BuildingExecutor {
                 while (blocksPlaced < 4) {
                     if (y >= maxY) {
                         builderNpc.remove();
+                        player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.GREEN + "✔ ¡Construcción de " + nombre + " finalizada al 100%!"));
                         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡La construcción de " + nombre + " ha finalizado!");
                         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                         activeTasks.remove(uuid);
@@ -231,6 +237,16 @@ public class BuildingExecutor {
                         cancel();
                         return;
                     }
+
+                    // Cálculo del porcentaje en tiempo real
+                    int currentStepIndex = (y * maxX * maxZ) + (z * maxX) + x;
+                    int percent = totalBlocks > 0 ? (currentStepIndex * 100) / totalBlocks : 100;
+                    if (percent > 100) percent = 100;
+
+                    // Enviar porcentaje a la Action Bar (barra superior del inventario, solo para el jugador)
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(
+                            ChatColor.YELLOW + "🏗 Construyendo " + nombre + ": " + ChatColor.GREEN + percent + "%"
+                    ));
 
                     BlockVector3 relPos = BlockVector3.at(minimumPoint.x() + x, minimumPoint.y() + y, minimumPoint.z() + z);
                     com.sk89q.worldedit.world.block.BlockState blockState = clipboard.getBlock(relPos);
