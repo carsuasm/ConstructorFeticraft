@@ -47,30 +47,35 @@ public class BuildingExecutor {
         return pausedPlayers.contains(playerUUID);
     }
 
-    public static void togglePause(Player player) {
+    // AHORA EL COMANDO STOP / CANCELAR FUNCIONA COMO PAUSA / REANUDAR
+    public static boolean togglePause(Player player) {
         UUID uuid = player.getUniqueId();
-        if (!hasActiveBuilding(uuid)) return;
+        if (!hasActiveBuilding(uuid)) {
+            player.sendMessage(ChatColor.RED + "No tienes ninguna construcción activa para pausar.");
+            return false;
+        }
 
+        Villager npc = activeNpcs.get(uuid);
         if (pausedPlayers.contains(uuid)) {
             pausedPlayers.remove(uuid);
-            Villager npc = activeNpcs.get(uuid);
             if (npc != null && npc.isValid()) {
                 npc.setCustomName(ChatColor.YELLOW + "Obrero de " + player.getName());
             }
-            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "Construcción reanudada.");
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "▶ Construcción reanudada.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1.0f, 1.0f);
         } else {
             pausedPlayers.add(uuid);
-            Villager npc = activeNpcs.get(uuid);
             if (npc != null && npc.isValid()) {
                 npc.setCustomName(ChatColor.RED + "[EN PAUSA] Obrero de " + player.getName());
             }
-            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.YELLOW + "Construcción pausada.");
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.YELLOW + "⏸ Construcción pausada. Usa /constructor stop para continuar.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
         }
+        return true;
     }
 
-    public static boolean cancelBuilding(Player player) {
+    // Método exclusivo por si en el menú gráfico quieres eliminar la obra por completo
+    public static boolean forceCancelBuilding(Player player) {
         UUID uuid = player.getUniqueId();
         boolean cleaned = false;
 
@@ -102,7 +107,7 @@ public class BuildingExecutor {
         }
 
         if (cleaned) {
-            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.RED + "Has cancelado la construcción activa y eliminado al obrero.");
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.RED + "Has cancelado la obra por completo y retirado al obrero.");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             return true;
         }
@@ -134,7 +139,7 @@ public class BuildingExecutor {
         UUID uuid = player.getUniqueId();
 
         if (hasActiveBuilding(uuid)) {
-            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor cancelar si deseas detenerla.");
+            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor stop para pausarla o reanudarla.");
             return;
         }
 
@@ -248,12 +253,12 @@ public class BuildingExecutor {
                 }
 
                 if (pausedPlayers.contains(uuid)) {
-                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.RED + "⏸ Construcción PAUSADA (Shift+Click al obrero)"));
+                    player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.RED + "⏸ Construcción PAUSADA (Usa /constructor stop para reanudar)"));
                     return;
                 }
 
                 int blocksPlaced = 0;
-                while (blocksPlaced < 4) {
+                while (blocksPlaced < 2) { // Coloca bloques de 2 en 2 de forma pausada y realista
                     if (y >= maxY) {
                         builderNpc.remove();
                         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.GREEN + "✔ ¡Construcción de " + nombre + " finalizada al 100%!"));
@@ -311,8 +316,8 @@ public class BuildingExecutor {
             }
         };
 
-        // Velocidad ajustada a 12L para que vaya más pausado y natural
-        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 12L);
+        // Velocidad ajustada a 28L para que vaya muy pausado, tranquilo y realista
+        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 28L);
         activeTasks.put(uuid, task);
     }
 }
