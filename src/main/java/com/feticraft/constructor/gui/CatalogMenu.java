@@ -22,16 +22,22 @@ import java.util.List;
 
 public class CatalogMenu implements Listener {
 
-    private final ConstructorFeticraftPlugin plugin;
+    private static ConstructorFeticraftPlugin plugin;
+    public static final String MENU_TITLE = ChatColor.DARK_GREEN + "Catálogo de Construcciones";
 
     public CatalogMenu(ConstructorFeticraftPlugin plugin) {
-        this.plugin = plugin;
+        CatalogMenu.plugin = plugin;
     }
 
-    public static void openCatalog(ConstructorFeticraftPlugin plugin, Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, ChatColor.DARK_GREEN + "Catálogo de Construcciones");
+    // Sobrecarga para admitir tanto openCatalog(player) como openCatalog(plugin, player)
+    public static void openCatalog(Player player) {
+        openCatalog(plugin, player);
+    }
 
-        File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
+    public static void openCatalog(ConstructorFeticraftPlugin pl, Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
+
+        File catalogFile = new File(pl.getDataFolder(), "catalogo.yml");
         if (catalogFile.exists()) {
             YamlConfiguration catalog = YamlConfiguration.loadConfiguration(catalogFile);
             if (catalog.contains("disenos")) {
@@ -48,8 +54,7 @@ public class CatalogMenu implements Listener {
                         lore.add(ChatColor.AQUA + "▶ Haz clic para comprar y obtener la pluma.");
                         meta.setLore(lore);
 
-                        // Guardar ID del diseño en el ítem del menú
-                        NamespacedKey key = new NamespacedKey(plugin, "catalog_id");
+                        NamespacedKey key = new NamespacedKey(pl, "catalog_id");
                         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, id);
                         item.setItemMeta(meta);
                     }
@@ -63,7 +68,7 @@ public class CatalogMenu implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle() == null || !event.getView().getTitle().equals(ChatColor.DARK_GREEN + "Catálogo de Construcciones")) {
+        if (event.getView().getTitle() == null || !event.getView().getTitle().equals(MENU_TITLE)) {
             return;
         }
 
@@ -83,7 +88,6 @@ public class CatalogMenu implements Listener {
         String idDiseno = meta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
         Player player = (Player) event.getWhoClicked();
 
-        // Obtener precio y nombre del archivo catalogo.yml
         File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
         double precio = 0.0;
         String nombreDiseno = idDiseno;
@@ -93,11 +97,10 @@ public class CatalogMenu implements Listener {
             nombreDiseno = catalog.getString("disenos." + idDiseno + ".nombre", idDiseno);
         }
 
-        // Comprobar y cobrar el dinero usando Vault
-        Economy econ = plugin.getEconomy(); // Asegúrate de que tu clase principal tenga el método getEconomy()
+        Economy econ = plugin.getEconomy();
         if (econ != null) {
             if (econ.has(player, precio)) {
-                econ.withdrawPlayer(player, precio); // ¡Aquí es donde se efectúa el cobro!
+                econ.withdrawPlayer(player, precio); // Cobro mediante Vault
                 player.sendMessage(ChatColor.GREEN + "¡Has comprado el diseño '" + nombreDiseno + "' por " + precio + " monedas!");
             } else {
                 player.sendMessage(ChatColor.RED + "[Arquitecto] No tienes suficiente dinero para comprar este diseño.");
@@ -106,7 +109,6 @@ public class CatalogMenu implements Listener {
             }
         }
 
-        // Crear la pluma del arquitecto con el diseño seleccionado
         ItemStack feather = new ItemStack(Material.FEATHER);
         ItemMeta featherMeta = feather.getItemMeta();
         if (featherMeta != null) {
@@ -118,7 +120,6 @@ public class CatalogMenu implements Listener {
             featherLore.add(ChatColor.AQUA + "▶ Haz Shift + Clic Derecho para cancelar.");
             featherMeta.setLore(featherLore);
 
-            // Guardar la clave del diseño para que el SelectionListener la reconozca al hacer clic
             NamespacedKey designKey = new NamespacedKey(plugin, "selected_building_id");
             featherMeta.getPersistentDataContainer().set(designKey, PersistentDataType.STRING, idDiseno);
             feather.setItemMeta(featherMeta);
