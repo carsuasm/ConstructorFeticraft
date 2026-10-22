@@ -47,7 +47,7 @@ public class BuildingExecutor {
         return pausedPlayers.contains(playerUUID);
     }
 
-    // AHORA EL COMANDO STOP / CANCELAR FUNCIONA COMO PAUSA / REANUDAR
+    // El comando /constructor stop funciona como pausa / reanudar
     public static boolean togglePause(Player player) {
         UUID uuid = player.getUniqueId();
         if (!hasActiveBuilding(uuid)) {
@@ -74,8 +74,8 @@ public class BuildingExecutor {
         return true;
     }
 
-    // Método exclusivo por si en el menú gráfico quieres eliminar la obra por completo
-    public static boolean forceCancelBuilding(Player player) {
+    // Método exacto de cancelación para que coincida con el plugin y el menú
+    public static boolean cancelBuilding(Player player) {
         UUID uuid = player.getUniqueId();
         boolean cleaned = false;
 
@@ -139,7 +139,7 @@ public class BuildingExecutor {
         UUID uuid = player.getUniqueId();
 
         if (hasActiveBuilding(uuid)) {
-            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor stop para pausarla o reanudarla.");
+            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor stop para pausarla.");
             return;
         }
 
@@ -258,7 +258,7 @@ public class BuildingExecutor {
                 }
 
                 int blocksPlaced = 0;
-                while (blocksPlaced < 2) { // Coloca bloques de 2 en 2 de forma pausada y realista
+                while (blocksPlaced < 2) { // Bloques de 2 en 2 para un ritmo muy pausado y visual
                     if (y >= maxY) {
                         builderNpc.remove();
                         player.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(ChatColor.GREEN + "✔ ¡Construcción de " + nombre + " finalizada al 100%!"));
@@ -291,7 +291,7 @@ public class BuildingExecutor {
                             block.getChunk().load();
                         }
 
-                        // Reemplaza y destruye cualquier bloque anterior en el mundo
+                        // Destruye y reemplaza cualquier bloque previo en el terreno
                         block.setType(mat, false);
 
                         Location npcPos = targetLoc.clone().add(1.2, 0, 1.2);
@@ -316,7 +316,7 @@ public class BuildingExecutor {
             }
         };
 
-        // Velocidad ajustada a 28L para que vaya muy pausado, tranquilo y realista
+        // Velocidad pausada a 28L ticks
         BukkitTask task = runnable.runTaskTimer(plugin, 0L, 28L);
         activeTasks.put(uuid, task);
     }
