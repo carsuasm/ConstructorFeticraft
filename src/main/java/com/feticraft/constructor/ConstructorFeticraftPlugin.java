@@ -1,5 +1,6 @@
 package com.feticraft.constructor;
 
+import com.feticraft.constructor.gui.MenuListener;
 import com.feticraft.constructor.npc.ArchitectNPCManager;
 import com.feticraft.constructor.npc.NPCListener;
 import org.bukkit.ChatColor;
@@ -27,6 +28,7 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin {
         // Inicializar gestor de NPC y eventos
         this.npcManager = new ArchitectNPCManager(this);
         getServer().getPluginManager().registerEvents(new NPCListener(npcManager), this);
+        getServer().getPluginManager().registerEvents(new MenuListener(), this);
 
         getLogger().info(ChatColor.GREEN + "¡ConstructorFeticraft ha sido habilitado correctamente en Feticraft!");
     }
