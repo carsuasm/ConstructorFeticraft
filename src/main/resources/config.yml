@@ -1,0 +1,23 @@
+# Configuración principal de Constructor de Feticraft
+# Servidor Feticraft
+
+settings:
+  default-price: 1000.0
+  build-speed-ticks: 10 # Cuantos ticks pasan entre bloque y bloque (20 ticks = 1 segundo)
+  max-active-works-per-player: 1
+  allowed-worlds:
+    - "world"
+    - "world_survival"
+
+npc:
+  name: "&e&lArquitecto Feticraft"
+  skin-type: "villager_mason"
+  invulnerable: true
+  ai-enabled: false
+
+messages:
+  prefix: "&8[&6Feticraft&8] &7"
+  not-enough-money: "&cNo tienes suficiente dinero para contratar esta construcción. Precio: &6%price%"
+  contract-started: "&a¡Contrato aceptado! Coloca el marcador de obra donde desees construir."
+  invalid-location: "&cLa ubicación seleccionada no es válida o invade otra protección."
+  construction-finished: "&a¡Tu construcción ha finalizado con éxito!"
