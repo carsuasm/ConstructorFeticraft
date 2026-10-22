@@ -43,7 +43,8 @@ public class CatalogMenu {
                 int largo = disenosSection.getInt(key + ".dimensiones.largo", 0);
                 int alto = disenosSection.getInt(key + ".dimensiones.alto", 0);
 
-                ItemStack item = new ItemStack(Material.HOUSE);
+                // Se utiliza OAK_DOOR para representar las edificaciones
+                ItemStack item = new ItemStack(Material.OAK_DOOR);
                 ItemMeta meta = item.getItemMeta();
 
                 if (meta != null) {
