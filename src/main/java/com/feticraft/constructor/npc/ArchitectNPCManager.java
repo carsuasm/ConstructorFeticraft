@@ -40,7 +40,14 @@ public class ArchitectNPCManager {
     public void spawnArchitect(Location loc) {
         removeArchitect(); // Eliminar anterior si existe
 
+        // Asegurar que el chunk está cargado
+        if (!loc.getChunk().isLoaded()) {
+            loc.getChunk().load();
+        }
+
+        // Forzar el spawn ignorando restricciones de protección del mundo
         Villager villager = (Villager) loc.getWorld().spawnEntity(loc, EntityType.VILLAGER);
+        
         villager.setProfession(Villager.Profession.MASON);
         villager.setVillagerType(Villager.Type.PLAINS);
         villager.setCustomName(ChatColor.translateAlternateColorCodes('&', plugin.getConfig().getString("npc.name", "&e&lArquitecto Feticraft")));
@@ -49,13 +56,14 @@ public class ArchitectNPCManager {
         villager.setInvulnerable(true);
         villager.setSilent(true);
         villager.setRemoveWhenFarAway(false);
+        villager.setPersistent(true);
 
         // Marcar la entidad con PDC propia
         villager.getPersistentDataContainer().set(npcKey, PersistentDataType.BYTE, (byte) 1);
 
         // Guardar persistencia
         saveNPCToConfig(loc, villager.getUniqueId());
-        plugin.getLogger().info("NPC Arquitecto propio creado con éxito.");
+        plugin.getLogger().info("NPC Arquitecto propio creado con éxito en zona protegida.");
     }
 
     public void removeArchitect() {
