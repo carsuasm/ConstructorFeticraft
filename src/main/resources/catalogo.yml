@@ -1,0 +1,43 @@
+# Catálogo de construcciones de Constructor de Feticraft
+# Cada diseño apunta a un archivo .schem dentro de la carpeta plugins/ConstructorFeticraft/diseños/
+
+categorias:
+  casas_pequenas:
+    nombre: "&aCasas Pequeñas"
+    icono: "OAK_DOOR"
+    descripcion: "Hogares acogedores y económicos ideales para empezar."
+  
+  granjas:
+    nombre: "&eGranjas y Cultivos"
+    icono: "WHEAT"
+    descripcion: "Estructuras agrícolas para producción de recursos."
+
+disenos:
+  choza_madera:
+    nombre: "Choza de Madera Básica"
+    categoria: "casas_pequenas"
+    descripcion: "Una pequeña cabaña de roble con espacio para una cama y cofres."
+    precio: 1500.0
+    dimensiones:
+      ancho: 5
+      largo: 5
+      alto: 4
+    etiquetas:
+      - "madera"
+      - "medieval"
+      - "pequeña"
+    esquema: "casas/choza_madera.schem"
+
+  granja_automatizada:
+    nombre: "Granja de Trigo Estándar"
+    categoria: "granjas"
+    descripcion: "Pequeño terreno delimitado con vallas y zona de cultivo básica."
+    precio: 2500.0
+    dimensiones:
+      ancho: 7
+      largo: 7
+      alto: 3
+    etiquetas:
+      - "granja"
+      - "exterior"
+    esquema: "granjas/granja_trigo.schem"
