@@ -1,17 +1,12 @@
 package com.feticraft.constructor.builder;
 
 import com.feticraft.constructor.ConstructorFeticraftPlugin;
-import com.sk89q.worldedit.EditSession;
-import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
-import com.sk89q.worldedit.function.operation.Operation;
-import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.session.ClipboardHolder;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -45,7 +40,6 @@ public class BuildingExecutor {
         String nombre = catalog.getString("disenos." + buildingId + ".nombre", "Estructura");
         String esquemaPath = catalog.getString("disenos." + buildingId + ".esquema", "");
 
-        // Localizar el archivo .schem dentro de plugins/ConstructorFeticraft/disenos/
         File schemFile = new File(plugin.getDataFolder(), "disenos/" + esquemaPath);
         if (!schemFile.exists()) {
             player.sendMessage(ChatColor.RED + "Error: No se encuentra el archivo de diseño (" + esquemaPath + ").");
@@ -55,7 +49,6 @@ public class BuildingExecutor {
         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡El ayudante ha comenzado a levantar " + nombre + "!");
         player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_WORK_MASON, 1.0f, 1.0f);
 
-        // Spawnear el NPC Obrero al lado de la zona
         Location npcSpawnLoc = startLoc.clone().add(3.0, 0, -2.0);
         Villager builderNpc = startLoc.getWorld().spawn(npcSpawnLoc, Villager.class, villager -> {
             villager.setProfession(Villager.Profession.MASON);
@@ -67,7 +60,6 @@ public class BuildingExecutor {
             villager.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_PICKAXE));
         });
 
-        // Cargar el esquema con WorldEdit de forma asíncrona para no congelar el servidor
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             ClipboardFormat format = ClipboardFormats.findByFile(schemFile);
             if (format == null) {
@@ -81,7 +73,6 @@ public class BuildingExecutor {
             try (ClipboardReader reader = format.getReader(new FileInputStream(schemFile))) {
                 Clipboard clipboard = reader.read();
 
-                // Volver al hilo principal de Minecraft para aplicar los bloques visualmente con el NPC
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     executeBlockPlacement(plugin, player, builderNpc, startLoc, clipboard, nombre);
                 });
@@ -100,7 +91,6 @@ public class BuildingExecutor {
         BlockVector3 minimumPoint = clipboard.getMinimumPoint();
         BlockVector3 dimensions = clipboard.getDimensions();
 
-        // Tarea para ir colocando los bloques poco a poco (ritmo visual del obrero)
         new BukkitRunnable() {
             int x = 0;
             int y = 0;
@@ -118,11 +108,9 @@ public class BuildingExecutor {
                     return;
                 }
 
-                // Colocar varios bloques por ciclo para agilizar pero manteniendo la animación
                 int blocksPlaced = 0;
                 while (blocksPlaced < 3) {
                     if (y >= maxY) {
-                        // Fin de la construcción
                         builderNpc.remove();
                         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡La construcción de " + nombre + " ha finalizado con éxito!");
                         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
@@ -130,11 +118,12 @@ public class BuildingExecutor {
                         return;
                     }
 
-                    // Obtener el bloque del portapapeles de WorldEdit
                     BlockVector3 relPos = BlockVector3.at(minimumPoint.x() + x, minimumPoint.y() + y, minimumPoint.z() + z);
                     com.sk89q.worldedit.world.block.BlockState blockState = clipboard.getBlock(relPos);
 
-                    if (!blockState.getBlockType().getDefaultState().toBukkit().isAir()) {
+                    Material mat = BukkitAdapter.adapt(blockState).getMaterial();
+
+                    if (mat != null && !mat.isAir()) {
                         Location targetLoc = startLoc.clone().add(x, y, z);
                         Block block = targetLoc.getBlock();
                         
@@ -142,19 +131,13 @@ public class BuildingExecutor {
                             block.getChunk().load();
                         }
 
-                        // Asignar el tipo de bloque real del schematic
-                        Material mat = BukkitAdapter.adapt(blockState.getBlockType());
-                        if (mat != null && mat.isBlock()) {
-                            block.setType(mat, false);
+                        block.setType(mat, false);
 
-                            // Hacer que el NPC mire hacia el bloque que está colocando
-                            Location npcLoc = builderNpc.getLocation();
-                            npcLoc.setDirection(targetLoc.toVector().subtract(npcLoc.toVector()));
-                            builderNpc.teleport(npcLoc);
-                        }
+                        Location npcLoc = builderNpc.getLocation();
+                        npcLoc.setDirection(targetLoc.toVector().subtract(npcLoc.toVector()));
+                        builderNpc.teleport(npcLoc);
                     }
 
-                    // Recorrer coordenadas 3D del schematic
                     x++;
                     if (x >= maxX) {
                         x = 0;
@@ -167,6 +150,6 @@ public class BuildingExecutor {
                     blocksPlaced++;
                 }
             }
-        }.runTaskTimer(plugin, 0L, 5L); // Velocidad: cada 5 ticks coloca bloques y mueve al obrero
+        }.runTaskTimer(plugin, 0L, 5L);
     }
 }
