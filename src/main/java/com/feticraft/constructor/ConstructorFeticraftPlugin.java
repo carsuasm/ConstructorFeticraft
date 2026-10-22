@@ -5,6 +5,7 @@ import com.feticraft.constructor.gui.CatalogMenu;
 import com.feticraft.constructor.gui.MenuListener;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -22,17 +23,14 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
     public void onEnable() {
         instance = this;
 
-        // Guardar configuración por defecto si no existe
         saveDefaultConfig();
 
-        // Verificar e inicializar Vault para la economía
         if (!setupEconomy()) {
             getLogger().warning("¡Vault no encontrado o sin plugin de economía! El sistema de pago por construcciones estará desactivado.");
         } else {
             getLogger().info("¡Economía de Vault vinculada correctamente!");
         }
 
-        // Registrar comandos y eventos
         if (getCommand("constructor") != null) {
             getCommand("constructor").setExecutor(this);
         }
@@ -74,7 +72,6 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        // Comando para recargar configuración (/constructor reload)
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             if (!player.hasPermission("constructorfeticraft.admin")) {
                 player.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
@@ -85,13 +82,11 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        // Comando para pausar / reanudar (/constructor stop)
         if (args.length > 0 && args[0].equalsIgnoreCase("stop")) {
             BuildingExecutor.togglePause(player);
             return true;
         }
 
-        // Comando para cancelar la obra por completo y retirar al obrero (/constructor cancelar)
         if (args.length > 0 && args[0].equalsIgnoreCase("cancelar")) {
             boolean cancelled = BuildingExecutor.cancelBuilding(player);
             if (!cancelled) {
@@ -100,30 +95,37 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        // Comando para crear el NPC Arquitecto del spawn (/constructor crear)
+        // Comando /constructor crear (Forzando la aparición incluso en zonas de spawn protegidas)
         if (args.length > 0 && args[0].equalsIgnoreCase("crear")) {
             if (!player.hasPermission("constructorfeticraft.admin")) {
                 player.sendMessage(ChatColor.RED + "No tienes permisos para crear al Arquitecto.");
                 return true;
             }
 
-            player.getWorld().spawn(player.getLocation(), Villager.class, villager -> {
-                villager.setProfession(Villager.Profession.LIBRARIAN);
-                villager.setVillagerType(Villager.Type.SNOW);
-                villager.setCustomName(ChatColor.GOLD + "Arquitecto Feticraft");
-                villager.setCustomNameVisible(true);
-                
-                villager.setAI(false);
-                villager.setInvulnerable(true);
-                villager.setCollidable(false);
-                villager.setSilent(true);
+            Location loc = player.getLocation();
+            if (!loc.getChunk().isLoaded()) {
+                loc.getChunk().load();
+            }
+
+            Villager villager = loc.getWorld().spawn(loc, Villager.class, v -> {
+                v.setProfession(Villager.Profession.LIBRARIAN);
+                v.setVillagerType(Villager.Type.SNOW);
+                v.setCustomName(ChatColor.GOLD + "Arquitecto Feticraft");
+                v.setCustomNameVisible(true);
+                v.setAI(false);
+                v.setInvulnerable(true);
+                v.setCollidable(false);
+                v.setSilent(true);
             });
 
-            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Has creado al Arquitecto Feticraft en esta ubicación!");
+            if (villager != null && villager.isValid()) {
+                player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Has creado al Arquitecto Feticraft con éxito en esta ubicación!");
+            } else {
+                player.sendMessage(ChatColor.RED + "[Arquitecto] Error: El servidor o una protección ha bloqueado la creación del NPC.");
+            }
             return true;
         }
 
-        // Si pones /constructor a secas, abre el catálogo visual
         CatalogMenu.openCatalog(player);
         return true;
     }
