@@ -9,13 +9,13 @@ repositories {
     mavenCentral()
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://jitpack.io")
-    maven("https://maven.enginehub.org/repo/") // Repositorio para WorldEdit / FAWE
+    maven("https://maven.enginehub.org/repo/")
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
-    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0") // Dependencia de WorldEdit
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.3.0")
 }
 
 java {
