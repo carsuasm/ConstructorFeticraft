@@ -123,7 +123,6 @@ public class BuildingExecutor {
         double precio = catalog.getDouble("disenos." + buildingId + ".precio", 0.0);
         String esquemaPath = catalog.getString("disenos." + buildingId + ".esquema", "");
 
-        // Cobro mediante Vault
         if (plugin.getEconomy() != null && precio > 0) {
             if (!plugin.getEconomy().has(player, precio)) {
                 player.sendMessage(ChatColor.RED + "No tienes suficiente dinero. Necesitas $" + precio);
@@ -146,7 +145,6 @@ public class BuildingExecutor {
         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡El obrero ha comenzado a construir " + nombre + "!");
         player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_WORK_MASON, 1.0f, 1.0f);
 
-        // Spawn del Obrero blindado, inmune e ignorado por mobs
         Villager builderNpc = startLoc.getWorld().spawn(startLoc.clone().add(1, 0, 1), Villager.class, villager -> {
             villager.setProfession(Villager.Profession.MASON);
             villager.setVillagerType(Villager.Type.PLAINS);
@@ -154,7 +152,6 @@ public class BuildingExecutor {
             villager.setCustomNameVisible(true);
             
             villager.setAI(false);
-            villager.setAware(false);
             villager.setInvulnerable(true);
             villager.setCollidable(false);
             villager.setSilent(true);
@@ -200,7 +197,7 @@ public class BuildingExecutor {
 
         BukkitRunnable runnable = new BukkitRunnable() {
             int x = 0;
-            int y = 0; // Soporta capas subterráneas desde el mínimo absoluto del schematic
+            int y = 0;
             int z = 0;
 
             final int maxX = dimensions.x();
