@@ -34,7 +34,10 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
         if (getCommand("constructor") != null) {
             getCommand("constructor").setExecutor(this);
         }
+        
+        // Registramos ambos listeners para que los clics del catálogo funcionen perfectamente
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
+        getServer().getPluginManager().registerEvents(new CatalogMenu(this), this);
 
         getLogger().info("ConstructorFeticraft ha sido habilitado correctamente.");
     }
@@ -95,7 +98,6 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        // Comando /constructor crear (Forzando la aparición incluso en zonas de spawn protegidas)
         if (args.length > 0 && args[0].equalsIgnoreCase("crear")) {
             if (!player.hasPermission("constructorfeticraft.admin")) {
                 player.sendMessage(ChatColor.RED + "No tienes permisos para crear al Arquitecto.");
