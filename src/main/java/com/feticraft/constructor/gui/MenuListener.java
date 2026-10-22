@@ -24,7 +24,13 @@ import java.util.UUID;
 
 public class MenuListener implements Listener {
 
+    private final ConstructorFeticraftPlugin plugin;
     public static final String CONTROL_MENU_TITLE = ChatColor.DARK_GRAY + "Gestión de Obra";
+
+    // Constructor que acepta la instancia del plugin
+    public MenuListener(ConstructorFeticraftPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     // 1. DETECTAR SHIFT + CLIC DERECHO EN EL OBRERO ALDEANO
     @EventHandler
@@ -34,7 +40,6 @@ public class MenuListener implements Listener {
         Player player = event.getPlayer();
         UUID ownerUUID = BuildingExecutor.getOwnerOfNpc(villager);
 
-        // Si es un obrero activo y quien interactúa es el dueño o un admin
         if (ownerUUID != null && (ownerUUID.equals(player.getUniqueId()) || player.hasPermission("constructorfeticraft.admin"))) {
             if (player.isSneaking()) { // SHIFT + CLIC DERECHO
                 event.setCancelled(true);
@@ -43,7 +48,6 @@ public class MenuListener implements Listener {
         }
     }
 
-    // Método para abrir el menú de Pausar / Cancelar
     public static void openControlMenu(Player player, UUID targetOwnerUUID) {
         Inventory gui = Bukkit.createInventory(null, 27, CONTROL_MENU_TITLE);
 
@@ -78,7 +82,7 @@ public class MenuListener implements Listener {
         player.openInventory(gui);
     }
 
-    // 2. MANEJO DE CLICS EN TODAS LAS INTERFACES DEL PLUGIN
+    // 2. MANEJO DE CLICS EN INTERFACES
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
@@ -91,9 +95,9 @@ public class MenuListener implements Listener {
 
             Player player = (Player) event.getWhoClicked();
             ItemMeta meta = clickedItem.getItemMeta();
-            ConstructorFeticraftPlugin plugin = ConstructorFeticraftPlugin.getInstance();
+            ConstructorFeticraftPlugin pluginInstance = ConstructorFeticraftPlugin.getInstance();
 
-            NamespacedKey catalogKey = new NamespacedKey(plugin, "catalog_building_key");
+            NamespacedKey catalogKey = new NamespacedKey(pluginInstance, "catalog_building_key");
             if (!meta.getPersistentDataContainer().has(catalogKey, PersistentDataType.STRING)) return;
 
             String buildingId = meta.getPersistentDataContainer().get(catalogKey, PersistentDataType.STRING);
@@ -101,7 +105,7 @@ public class MenuListener implements Listener {
 
             player.closeInventory();
             
-            ItemStack tool = ConstructionSelector.getSelectionTool(plugin, buildingId, itemName);
+            ItemStack tool = ConstructionSelector.getSelectionTool(pluginInstance, buildingId, itemName);
             player.getInventory().addItem(tool);
 
             player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "Has seleccionado: " + itemName);
@@ -116,7 +120,7 @@ public class MenuListener implements Listener {
             if (clickedItem == null || !clickedItem.hasItemMeta()) return;
 
             Player player = (Player) event.getWhoClicked();
-            ConstructorFeticraftPlugin plugin = ConstructorFeticraftPlugin.getInstance();
+            ConstructorFeticraftPlugin pluginInstance = ConstructorFeticraftPlugin.getInstance();
 
             if (clickedItem.getType() == Material.RED_WOOL) {
                 player.closeInventory();
@@ -126,8 +130,8 @@ public class MenuListener implements Listener {
 
             if (clickedItem.getType() == Material.LIME_WOOL) {
                 ItemMeta meta = clickedItem.getItemMeta();
-                NamespacedKey idKey = new NamespacedKey(plugin, "confirm_building_id");
-                NamespacedKey locKey = new NamespacedKey(plugin, "confirm_building_loc");
+                NamespacedKey idKey = new NamespacedKey(pluginInstance, "confirm_building_id");
+                NamespacedKey locKey = new NamespacedKey(pluginInstance, "confirm_building_loc");
 
                 if (!meta.getPersistentDataContainer().has(idKey, PersistentDataType.STRING)) return;
 
@@ -144,14 +148,12 @@ public class MenuListener implements Listener {
 
                 player.closeInventory();
 
-                // Retirar la herramienta del inventario al confirmar
                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                 if (mainHand != null) {
                     player.getInventory().removeItem(mainHand);
                 }
 
-                // Iniciar la construcción con el obrero
-                BuildingExecutor.buildStructure(plugin, player, targetLoc, buildingId);
+                BuildingExecutor.buildStructure(pluginInstance, player, targetLoc, buildingId);
                 return;
             }
         }
