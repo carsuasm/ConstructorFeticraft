@@ -1,6 +1,7 @@
 package com.feticraft.constructor;
 
 import com.feticraft.constructor.builder.BuildingExecutor;
+import com.feticraft.constructor.gui.CatalogMenu;
 import com.feticraft.constructor.gui.MenuListener;
 import com.feticraft.constructor.selection.SelectionListener;
 import net.milkbowl.vault.economy.Economy;
@@ -73,7 +74,6 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
         return economy != null;
     }
 
-    // ESTE ES EL MÉTODO QUE FALTABA Y DABA EL ERROR DE COMPILACIÓN:
     public Economy getEconomy() {
         return economy;
     }
@@ -88,22 +88,22 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
     // MANEJO DE COMANDOS (/constructor)
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Este comando solo lo puede usar un jugador.");
+            return true;
+        }
+
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
-            if (!sender.hasPermission("constructorfeticraft.admin")) {
-                sender.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
+            if (!player.hasPermission("constructorfeticraft.admin")) {
+                player.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
                 return true;
             }
             reloadConfig();
-            sender.sendMessage(ChatColor.GREEN + "[ConstructorFeticraft] Configuración recargada correctamente.");
+            player.sendMessage(ChatColor.GREEN + "[ConstructorFeticraft] Configuración recargada correctamente.");
             return true;
         }
 
         if (args.length > 0 && (args[0].equalsIgnoreCase("cancelar") || args[0].equalsIgnoreCase("stop"))) {
-            if (!(sender instanceof Player player)) {
-                sender.sendMessage("Este comando solo lo puede usar un jugador.");
-                return true;
-            }
-
             boolean cancelled = BuildingExecutor.cancelBuilding(player);
             if (!cancelled) {
                 player.sendMessage(ChatColor.RED + "No tienes ninguna construcción en curso para cancelar.");
@@ -111,9 +111,8 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             return true;
         }
 
-        sender.sendMessage(ChatColor.GOLD + "--- ConstructorFeticraft ---");
-        sender.sendMessage(ChatColor.YELLOW + "/constructor reload " + ChatColor.WHITE + "- Recarga la configuración.");
-        sender.sendMessage(ChatColor.YELLOW + "/constructor cancelar " + ChatColor.WHITE + "- Detiene tu obra actual.");
+        // Si pone /constructor sin argumentos, abre el catálogo directamente
+        CatalogMenu.openCatalog(player);
         return true;
     }
 }
