@@ -9,20 +9,81 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Arrays;
+import java.util.UUID;
+
 public class MenuListener implements Listener {
 
+    public static final String CONTROL_MENU_TITLE = ChatColor.DARK_GRAY + "Gestión de Obra";
+
+    // 1. DETECTAR SHIFT + CLIC DERECHO EN EL OBRERO ALDEANO
+    @EventHandler
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Villager villager)) return;
+
+        Player player = event.getPlayer();
+        UUID ownerUUID = BuildingExecutor.getOwnerOfNpc(villager);
+
+        // Si es un obrero activo y quien interactúa es el dueño o un admin
+        if (ownerUUID != null && (ownerUUID.equals(player.getUniqueId()) || player.hasPermission("constructorfeticraft.admin"))) {
+            if (player.isSneaking()) { // SHIFT + CLIC DERECHO
+                event.setCancelled(true);
+                openControlMenu(player, ownerUUID);
+            }
+        }
+    }
+
+    // Método para abrir el menú de Pausar / Cancelar
+    public static void openControlMenu(Player player, UUID targetOwnerUUID) {
+        Inventory gui = Bukkit.createInventory(null, 27, CONTROL_MENU_TITLE);
+
+        boolean isPaused = BuildingExecutor.isPaused(targetOwnerUUID);
+
+        // Botón Pausar / Reanudar
+        ItemStack pauseItem = new ItemStack(isPaused ? Material.LIME_DYE : Material.ORANGE_DYE);
+        ItemMeta pauseMeta = pauseItem.getItemMeta();
+        if (pauseMeta != null) {
+            pauseMeta.setDisplayName(isPaused ? ChatColor.GREEN + "▶ Reanudar Construcción" : ChatColor.GOLD + "⏸ Pausar Construcción");
+            pauseMeta.setLore(Arrays.asList(
+                    ChatColor.GRAY + (isPaused ? "Haz clic para continuar la obra." : "Haz clic para detener el avance temporalmente.")
+            ));
+            pauseItem.setItemMeta(pauseMeta);
+        }
+
+        // Botón Cancelar
+        ItemStack cancelItem = new ItemStack(Material.REDSTONE_BLOCK);
+        ItemMeta cancelMeta = cancelItem.getItemMeta();
+        if (cancelMeta != null) {
+            cancelMeta.setDisplayName(ChatColor.RED + "🛑 Cancelar Construcción");
+            cancelMeta.setLore(Arrays.asList(
+                    ChatColor.GRAY + "Detiene la obra por completo y",
+                    ChatColor.GRAY + "elimina al obrero actual."
+            ));
+            cancelItem.setItemMeta(cancelMeta);
+        }
+
+        gui.setItem(11, pauseItem);
+        gui.setItem(15, cancelItem);
+
+        player.openInventory(gui);
+    }
+
+    // 2. MANEJO DE CLICS EN TODAS LAS INTERFACES DEL PLUGIN
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
 
-        // 1. Manejo del menú del catálogo
+        // A) Manejo del menú del catálogo
         if (title.equals(CatalogMenu.MENU_TITLE)) {
             event.setCancelled(true);
             ItemStack clickedItem = event.getCurrentItem();
@@ -48,7 +109,7 @@ public class MenuListener implements Listener {
             return;
         }
 
-        // 2. Manejo del menú de confirmación de obra
+        // B) Manejo del menú de confirmación de obra
         if (title.equals(ConfirmMenu.CONFIRM_TITLE)) {
             event.setCancelled(true);
             ItemStack clickedItem = event.getCurrentItem();
@@ -91,6 +152,24 @@ public class MenuListener implements Listener {
 
                 // Iniciar la construcción con el obrero
                 BuildingExecutor.buildStructure(plugin, player, targetLoc, buildingId);
+                return;
+            }
+        }
+
+        // C) Manejo del menú de Gestión de Obra (Pausar / Cancelar)
+        if (title.equals(CONTROL_MENU_TITLE)) {
+            event.setCancelled(true);
+            if (!(event.getWhoClicked() instanceof Player player)) return;
+
+            ItemStack current = event.getCurrentItem();
+            if (current == null || current.getType() == Material.AIR) return;
+
+            if (current.getType() == Material.LIME_DYE || current.getType() == Material.ORANGE_DYE) {
+                BuildingExecutor.togglePause(player);
+                player.closeInventory();
+            } else if (current.getType() == Material.REDSTONE_BLOCK) {
+                BuildingExecutor.cancelBuilding(player);
+                player.closeInventory();
             }
         }
     }
