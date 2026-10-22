@@ -2,8 +2,10 @@ package com.feticraft.constructor.selection;
 
 import com.feticraft.constructor.ConstructorFeticraftPlugin;
 import com.feticraft.constructor.gui.ConfirmMenu;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
@@ -32,14 +34,20 @@ public class SelectionListener implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        if (item == null || item.getType() == org.bukkit.Material.AIR || !item.hasItemMeta()) {
+        // Comprobación de seguridad básica
+        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) {
             return;
         }
 
         NamespacedKey key = new NamespacedKey(plugin, "selected_building_id");
+        
+        // Comprobamos si el ítem tiene la clave del diseño
         if (!item.getItemMeta().getPersistentDataContainer().has(key, PersistentDataType.STRING)) {
             return;
         }
+
+        // ¡AQUÍ ESTÁ EL CHIVATO 1! Si ves esto en la consola, significa que el servidor SÍ reconoce tu pluma.
+        Bukkit.getLogger().info("[FetiCraft DEBUG] ¡Clic detectado con la pluma de arquitectura!");
 
         event.setCancelled(true);
 
@@ -51,7 +59,7 @@ public class SelectionListener implements Listener {
             return;
         }
 
-        // Si hace clic derecho en un bloque: Fija la zona, muestra partículas y le indica cómo abrir el menú
+        // Si hace clic derecho en un bloque: Fija la zona y muestra partículas
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock == null) return;
@@ -72,16 +80,16 @@ public class SelectionListener implements Listener {
                 }
             }
 
-            // Mostrar partículas 3D durante 20 segundos
+            // Mostrar partículas
             startParticleTask(player, baseLoc, width, length, height, 20);
 
             player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
             player.sendMessage(ChatColor.GREEN + "✔ Perímetro de obra delimitado con partículas.");
             player.sendMessage(ChatColor.YELLOW + "▶ Mira bien el terreno desde la distancia.");
-            player.sendMessage(ChatColor.AQUA + "▶ Cuando estés listo, HAZ CLIC DERECHO de nuevo con la pluma para abrir el menú de confirmación.");
+            player.sendMessage(ChatColor.AQUA + "▶ Cuando estés listo, HAZ CLIC DERECHO de nuevo con la pluma para abrir el menú.");
             player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
 
-            // Guardar la ubicación elegida temporalmente en el ítem para reutilización
+            // Guardar la ubicación elegida temporalmente en el ítem
             NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
             String locData = baseLoc.getWorld().getName() + "," + baseLoc.getBlockX() + "," + baseLoc.getBlockY() + "," + baseLoc.getBlockZ();
             
@@ -91,20 +99,22 @@ public class SelectionListener implements Listener {
             return;
         }
 
-        // Si ya tenía la zona marcada y vuelve a hacer Clic Derecho: Abre el menú
+        // Si ya tenía la zona marcada y vuelve a hacer Clic Derecho: Abre el menú de confirmación
         if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
             if (item.getItemMeta().getPersistentDataContainer().has(locKey, PersistentDataType.STRING)) {
                 String locRaw = item.getItemMeta().getPersistentDataContainer().get(locKey, PersistentDataType.STRING);
                 String[] parts = locRaw.split(",");
                 Location targetLoc = new Location(
-                    org.bukkit.Bukkit.getWorld(parts[0]),
+                    Bukkit.getWorld(parts[0]),
                     Double.parseDouble(parts[1]),
                     Double.parseDouble(parts[2]),
                     Double.parseDouble(parts[3])
                 );
 
                 ConfirmMenu.openConfirmMenu(plugin, player, idDiseno, targetLoc);
+            } else {
+                player.sendMessage(ChatColor.YELLOW + "[Arquitecto] Primero haz clic derecho en un bloque para marcar dónde quieres construir.");
             }
         }
     }
