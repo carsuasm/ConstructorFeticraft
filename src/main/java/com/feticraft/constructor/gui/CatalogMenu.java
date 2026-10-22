@@ -29,10 +29,17 @@ public class CatalogMenu implements Listener {
         this.plugin = plugin;
     }
 
-    public static void openCatalog(ConstructorFeticraftPlugin plugin, Player player) {
+    // SOBRECARGA 1: Para cuando llaman solo con (Player player) desde los Listeners o Plugin
+    public static void openCatalog(Player player) {
+        ConstructorFeticraftPlugin pl = ConstructorFeticraftPlugin.getPlugin(ConstructorFeticraftPlugin.class);
+        openCatalog(pl, player);
+    }
+
+    // SOBRECARGA 2: Para cuando llaman con (ConstructorFeticraftPlugin pl, Player player)
+    public static void openCatalog(ConstructorFeticraftPlugin pl, Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
 
-        File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
+        File catalogFile = new File(pl.getDataFolder(), "catalogo.yml");
         if (catalogFile.exists()) {
             YamlConfiguration catalog = YamlConfiguration.loadConfiguration(catalogFile);
             if (catalog.contains("disenos")) {
@@ -49,7 +56,7 @@ public class CatalogMenu implements Listener {
                         lore.add(ChatColor.AQUA + "▶ Haz clic para comprar y obtener la pluma.");
                         meta.setLore(lore);
 
-                        NamespacedKey key = new NamespacedKey(plugin, "catalog_id");
+                        NamespacedKey key = new NamespacedKey(pl, "catalog_id");
                         meta.getPersistentDataContainer().set(key, PersistentDataType.STRING, id);
                         item.setItemMeta(meta);
                     }
@@ -74,7 +81,9 @@ public class CatalogMenu implements Listener {
             return;
         }
 
-        NamespacedKey key = new NamespacedKey(plugin, "catalog_id");
+        ConstructorFeticraftPlugin pl = (plugin != null) ? plugin : ConstructorFeticraftPlugin.getPlugin(ConstructorFeticraftPlugin.class);
+
+        NamespacedKey key = new NamespacedKey(pl, "catalog_id");
         ItemMeta meta = clickedItem.getItemMeta();
         if (!meta.getPersistentDataContainer().has(key, PersistentDataType.STRING)) {
             return;
@@ -83,7 +92,7 @@ public class CatalogMenu implements Listener {
         String idDiseno = meta.getPersistentDataContainer().get(key, PersistentDataType.STRING);
         Player player = (Player) event.getWhoClicked();
 
-        File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
+        File catalogFile = new File(pl.getDataFolder(), "catalogo.yml");
         double precio = 0.0;
         String nombreDiseno = idDiseno;
         if (catalogFile.exists()) {
@@ -92,7 +101,7 @@ public class CatalogMenu implements Listener {
             nombreDiseno = catalog.getString("disenos." + idDiseno + ".nombre", idDiseno);
         }
 
-        Economy econ = plugin.getEconomy();
+        Economy econ = pl.getEconomy();
         if (econ != null) {
             if (econ.has(player, precio)) {
                 econ.withdrawPlayer(player, precio);
@@ -115,7 +124,7 @@ public class CatalogMenu implements Listener {
             featherLore.add(ChatColor.AQUA + "▶ Haz Shift + Clic Derecho para cancelar.");
             featherMeta.setLore(featherLore);
 
-            NamespacedKey designKey = new NamespacedKey(plugin, "selected_building_id");
+            NamespacedKey designKey = new NamespacedKey(pl, "selected_building_id");
             featherMeta.getPersistentDataContainer().set(designKey, PersistentDataType.STRING, idDiseno);
             feather.setItemMeta(featherMeta);
         }
