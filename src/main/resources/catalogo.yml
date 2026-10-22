@@ -6,7 +6,7 @@ categorias:
     nombre: "&aCasas Pequeñas"
     icono: "OAK_DOOR"
     descripcion: "Hogares acogedores y económicos ideales para empezar."
-  
+
   granjas:
     nombre: "&eGranjas y Cultivos"
     icono: "WHEAT"
@@ -14,14 +14,14 @@ categorias:
 
 disenos:
   choza_madera:
-    nombre: "Choza de Madera Básica"
+    nombre: "&6Choza de Madera Básica"
     categoria: "casas_pequenas"
-    descripcion: "Una pequeña cabaña de roble con espacio para una cama y cofres."
-    precio: 1500.0
+    descripcion: "Una pequeña cabaña de roble con espacio para cama, horno y cofres."
+    precio: 25000.0
     dimensiones:
-      ancho: 5
-      largo: 5
-      alto: 4
+      ancho: 7
+      largo: 7
+      alto: 6
     etiquetas:
       - "madera"
       - "medieval"
@@ -29,15 +29,16 @@ disenos:
     esquema: "casas/choza_madera.schem"
 
   granja_automatizada:
-    nombre: "Granja de Trigo Estándar"
+    nombre: "&eGranja de Trigo Estándar"
     categoria: "granjas"
-    descripcion: "Pequeño terreno delimitado con vallas y zona de cultivo básica."
-    precio: 2500.0
+    descripcion: "Terreno delimitado con vallas, iluminación y zona de cultivo con agua."
+    precio: 35000.0
     dimensiones:
-      ancho: 7
-      largo: 7
-      alto: 3
+      ancho: 9
+      largo: 9
+      alto: 4
     etiquetas:
       - "granja"
       - "exterior"
+      - "cultivos"
     esquema: "granjas/granja_trigo.schem"
