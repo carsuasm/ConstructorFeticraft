@@ -1,5 +1,7 @@
 package com.feticraft.constructor;
 
+import com.feticraft.constructor.npc.ArchitectNPCManager;
+import com.feticraft.constructor.npc.NPCListener;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -9,14 +11,19 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class ConstructorFeticraftPlugin extends JavaPlugin {
 
     private static ConstructorFeticraftPlugin instance;
+    private ArchitectNPCManager npcManager;
 
     @Override
     public void onEnable() {
         instance = this;
 
-        // Guardar archivos de configuración por defecto si no existen
+        // Cargar/guardar configuraciones iniciales
         saveDefaultConfig();
         saveResource("catalogo.yml", false);
+
+        // Inicializar gestor de NPC y eventos
+        this.npcManager = new ArchitectNPCManager(this);
+        getServer().getPluginManager().registerEvents(new NPCListener(npcManager), this);
 
         getLogger().info(ChatColor.GREEN + "¡ConstructorFeticraft ha sido habilitado correctamente en Feticraft!");
     }
@@ -30,23 +37,56 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin {
         return instance;
     }
 
+    public ArchitectNPCManager getNpcManager() {
+        return npcManager;
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (command.getName().equalsIgnoreCase("constructor")) {
-            if (args.length > 0 && args[0].equalsIgnoreCase("ayuda")) {
-                sender.sendMessage(ChatColor.GOLD + "=== Comandos de ConstructorFeticraft ===");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor crear " + ChatColor.WHITE + "- Crea el NPC arquitecto.");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor eliminar " + ChatColor.WHITE + "- Elimina el NPC seleccionado.");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor mover " + ChatColor.WHITE + "- Mueve el NPC a tu posición.");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor catalogo " + ChatColor.WHITE + "- Muestra información del catálogo.");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor obras " + ChatColor.WHITE + "- Lista las obras activas.");
-                sender.sendMessage(ChatColor.YELLOW + "/constructor recargar " + ChatColor.WHITE + "- Recarga la configuración.");
-                return true;
-            }
+        if (!command.getName().equalsIgnoreCase("constructor")) {
+            return false;
+        }
 
-            sender.sendMessage(ChatColor.YELLOW + "[Feticraft] Usa " + ChatColor.WHITE + "/constructor ayuda" + ChatColor.YELLOW + " para ver los comandos disponibles.");
+        if (args.length == 0 || args[0].equalsIgnoreCase("ayuda")) {
+            sender.sendMessage(ChatColor.GOLD + "=== Comandos de ConstructorFeticraft ===");
+            sender.sendMessage(ChatColor.YELLOW + "/constructor crear " + ChatColor.WHITE + "- Crea o recoloca al NPC arquitecto.");
+            sender.sendMessage(ChatColor.YELLOW + "/constructor eliminar " + ChatColor.WHITE + "- Elimina el NPC arquitecto.");
+            sender.sendMessage(ChatColor.YELLOW + "/constructor mover " + ChatColor.WHITE + "- Mueve el NPC a tu posición.");
+            sender.sendMessage(ChatColor.YELLOW + "/constructor recargar " + ChatColor.WHITE + "- Recarga la configuración.");
             return true;
         }
-        return false;
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "Este comando solo lo pueden usar jugadores dentro del juego.");
+            return true;
+        }
+
+        if (!player.hasPermission("constructor.admin")) {
+            player.sendMessage(ChatColor.RED + "No tienes permiso para ejecutar comandos administrativos de Constructor.");
+            return true;
+        }
+
+        switch (args[0].toLowerCase()) {
+            case "crear", "mover":
+                npcManager.spawnArchitect(player.getLocation());
+                player.sendMessage(ChatColor.GREEN + "¡El NPC Arquitecto Feticraft ha sido colocado en tu posición!");
+                break;
+
+            case "eliminar":
+                npcManager.removeArchitect();
+                player.sendMessage(ChatColor.RED + "El NPC Arquitecto ha sido eliminado del mapa.");
+                break;
+
+            case "recargar":
+                reloadConfig();
+                player.sendMessage(ChatColor.GREEN + "Configuración de ConstructorFeticraft recargada.");
+                break;
+
+            default:
+                player.sendMessage(ChatColor.RED + "Comando desconocido. Usa /constructor ayuda.");
+                break;
+        }
+
+        return true;
     }
 }
