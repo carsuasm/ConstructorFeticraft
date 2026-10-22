@@ -22,20 +22,20 @@ import java.util.List;
 
 public class CatalogMenu implements Listener {
 
-    private static ConstructorFeticraftPlugin plugin;
+    private final ConstructorFeticraftPlugin plugin;
     public static final String MENU_TITLE = ChatColor.DARK_GREEN + "Catálogo de Construcciones";
 
     public CatalogMenu(ConstructorFeticraftPlugin plugin) {
-        CatalogMenu.plugin = plugin;
+        this.plugin = plugin;
     }
 
-    // Métodos openCatalog para compatibilidad (tanto con (player) como con (plugin, player))
+    // Método para abrir el catálogo desde el comando (pasando solo el jugador)
     public static void openCatalog(Player player) {
-        if (plugin != null) {
-            openCatalog(plugin, player);
-        }
+        ConstructorFeticraftPlugin pl = ConstructorFeticraftPlugin.getPlugin(ConstructorFeticraftPlugin.class);
+        openCatalog(pl, player);
     }
 
+    // Método principal para abrir el catálogo
     public static void openCatalog(ConstructorFeticraftPlugin pl, Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
 
@@ -99,7 +99,7 @@ public class CatalogMenu implements Listener {
             nombreDiseno = catalog.getString("disenos." + idDiseno + ".nombre", idDiseno);
         }
 
-        // Cobrar con Vault
+        // Cobro con Vault
         Economy econ = plugin.getEconomy();
         if (econ != null) {
             if (econ.has(player, precio)) {
@@ -112,7 +112,7 @@ public class CatalogMenu implements Listener {
             }
         }
 
-        // Entregar la pluma del arquitecto configurada
+        // Entregar la pluma del arquitecto
         ItemStack feather = new ItemStack(Material.FEATHER);
         ItemMeta featherMeta = feather.getItemMeta();
         if (featherMeta != null) {
