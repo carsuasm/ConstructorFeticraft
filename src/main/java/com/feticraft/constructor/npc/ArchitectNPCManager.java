@@ -8,8 +8,8 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Villager;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.io.File;
@@ -40,30 +40,30 @@ public class ArchitectNPCManager {
     public void spawnArchitect(Location loc) {
         removeArchitect(); // Eliminar anterior si existe
 
-        // Asegurar que el chunk está cargado
+        // Cargar el chunk de forma síncrona
         if (!loc.getChunk().isLoaded()) {
             loc.getChunk().load();
         }
 
-        // Forzar el spawn ignorando restricciones de protección del mundo
-        Villager villager = (Villager) loc.getWorld().spawnEntity(loc, EntityType.VILLAGER);
-        
-        villager.setProfession(Villager.Profession.MASON);
-        villager.setVillagerType(Villager.Type.PLAINS);
-        villager.setCustomName(ChatColor.translateAlternateColorCodes('&', plugin.getConfig().getString("npc.name", "&e&lArquitecto Feticraft")));
-        villager.setCustomNameVisible(true);
-        villager.setAI(false);
-        villager.setInvulnerable(true);
-        villager.setSilent(true);
-        villager.setRemoveWhenFarAway(false);
-        villager.setPersistent(true);
+        // Spawn con razón CUSTOM para sobrepasar restricciones de WorldGuard / LederProtections
+        Villager villager = loc.getWorld().spawn(loc, Villager.class, CreatureSpawnEvent.SpawnReason.CUSTOM, entity -> {
+            entity.setProfession(Villager.Profession.MASON);
+            entity.setVillagerType(Villager.Type.PLAINS);
+            entity.setCustomName(ChatColor.translateAlternateColorCodes('&', plugin.getConfig().getString("npc.name", "&e&lArquitecto Feticraft")));
+            entity.setCustomNameVisible(true);
+            entity.setAI(false);
+            entity.setInvulnerable(true);
+            entity.setSilent(true);
+            entity.setRemoveWhenFarAway(false);
+            entity.setPersistent(true);
 
-        // Marcar la entidad con PDC propia
-        villager.getPersistentDataContainer().set(npcKey, PersistentDataType.BYTE, (byte) 1);
+            // Marcar la entidad con PDC propia
+            entity.getPersistentDataContainer().set(npcKey, PersistentDataType.BYTE, (byte) 1);
+        });
 
         // Guardar persistencia
         saveNPCToConfig(loc, villager.getUniqueId());
-        plugin.getLogger().info("NPC Arquitecto propio creado con éxito en zona protegida.");
+        plugin.getLogger().info("NPC Arquitecto propio creado con éxito en: " + loc.getX() + ", " + loc.getY() + ", " + loc.getZ());
     }
 
     public void removeArchitect() {
