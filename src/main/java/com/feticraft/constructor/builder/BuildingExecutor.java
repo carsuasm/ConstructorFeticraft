@@ -19,14 +19,51 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class BuildingExecutor {
 
+    // Registro de tareas activas de construcción por UUID de jugador
+    private static final Map<UUID, BukkitTask> activeTasks = new HashMap<>();
+    private static final Map<UUID, Villager> activeNpcs = new HashMap<>();
+
+    public static boolean hasActiveBuilding(UUID playerUUID) {
+        return activeTasks.containsKey(playerUUID);
+    }
+
+    public static boolean cancelBuilding(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (activeTasks.containsKey(uuid)) {
+            activeTasks.get(uuid).cancel();
+            activeTasks.remove(uuid);
+
+            Villager npc = activeNpcs.remove(uuid);
+            if (npc != null && npc.isValid()) {
+                npc.remove();
+            }
+
+            player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.RED + "Has cancelado la construcción activa.");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            return true;
+        }
+        return false;
+    }
+
     public static void buildStructure(ConstructorFeticraftPlugin plugin, Player player, Location startLoc, String buildingId) {
+        UUID uuid = player.getUniqueId();
+
+        if (hasActiveBuilding(uuid)) {
+            player.sendMessage(ChatColor.RED + "Ya tienes una construcción en curso. Usa /constructor cancelar si quieres detenerla.");
+            return;
+        }
+
         File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
         if (!catalogFile.exists()) {
             player.sendMessage(ChatColor.RED + "Error: No se encuentra el catálogo de construcciones.");
@@ -72,10 +109,12 @@ public class BuildingExecutor {
             villager.setVillagerType(Villager.Type.PLAINS);
             villager.setCustomName(ChatColor.YELLOW + "Obrero de " + player.getName());
             villager.setCustomNameVisible(true);
-            villager.setAI(false); // Quitar IA libre para controlar movimiento
+            villager.setAI(false);
             villager.setInvulnerable(true);
             villager.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_PICKAXE));
         });
+
+        activeNpcs.put(uuid, builderNpc);
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             ClipboardFormat format = ClipboardFormats.findByFile(schemFile);
@@ -83,6 +122,7 @@ public class BuildingExecutor {
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     player.sendMessage(ChatColor.RED + "Error: Formato de esquema no reconocido.");
                     if (builderNpc.isValid()) builderNpc.remove();
+                    activeNpcs.remove(uuid);
                 });
                 return;
             }
@@ -98,6 +138,7 @@ public class BuildingExecutor {
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     player.sendMessage(ChatColor.RED + "Error al leer el archivo .schem.");
                     if (builderNpc.isValid()) builderNpc.remove();
+                    activeNpcs.remove(uuid);
                 });
                 e.printStackTrace();
             }
@@ -107,10 +148,11 @@ public class BuildingExecutor {
     private static void executeBlockPlacement(ConstructorFeticraftPlugin plugin, Player player, Villager builderNpc, Location startLoc, Clipboard clipboard, String nombre) {
         BlockVector3 minimumPoint = clipboard.getMinimumPoint();
         BlockVector3 dimensions = clipboard.getDimensions();
+        UUID uuid = player.getUniqueId();
 
-        new BukkitRunnable() {
+        BukkitRunnable runnable = new BukkitRunnable() {
             int x = 0;
-            int y = 0; // Empieza desde la capa más baja (incluyendo subterráneos)
+            int y = 0;
             int z = 0;
 
             final int maxX = dimensions.x();
@@ -121,16 +163,20 @@ public class BuildingExecutor {
             public void run() {
                 if (!player.isOnline() || builderNpc.isDead()) {
                     if (builderNpc.isValid()) builderNpc.remove();
+                    activeTasks.remove(uuid);
+                    activeNpcs.remove(uuid);
                     cancel();
                     return;
                 }
 
                 int blocksPlaced = 0;
-                while (blocksPlaced < 4) { // Coloca 4 bloques por ciclo
+                while (blocksPlaced < 4) {
                     if (y >= maxY) {
                         builderNpc.remove();
                         player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡La construcción de " + nombre + " ha finalizado!");
                         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                        activeTasks.remove(uuid);
+                        activeNpcs.remove(uuid);
                         cancel();
                         return;
                     }
@@ -149,12 +195,10 @@ public class BuildingExecutor {
 
                         block.setType(mat, false);
 
-                        // Teletransportar al obrero cerca del bloque actual para la animación
                         Location npcPos = targetLoc.clone().add(1.2, 0, 1.2);
                         npcPos.setDirection(targetLoc.toVector().subtract(npcPos.toVector()));
                         builderNpc.teleport(npcPos);
 
-                        // Efectos de sonido y partículas de construcción
                         targetLoc.getWorld().spawnParticle(Particle.BLOCK, targetLoc.clone().add(0.5, 0.5, 0.5), 6, mat.createBlockData());
                         targetLoc.getWorld().playSound(targetLoc, Sound.BLOCK_STONE_PLACE, 0.5f, 1.2f);
                     }
@@ -171,6 +215,9 @@ public class BuildingExecutor {
                     blocksPlaced++;
                 }
             }
-        }.runTaskTimer(plugin, 0L, 3L); // Animación fluida
+        };
+
+        BukkitTask task = runnable.runTaskTimer(plugin, 0L, 3L);
+        activeTasks.put(uuid, task);
     }
 }
