@@ -45,22 +45,14 @@ public class SelectionListener implements Listener {
 
         String idDiseno = item.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
 
-        // Cancelar selección si el jugador está agachado (Shift + Clic Derecho)
+        // Cancelar si el jugador está agachado (Shift + Clic Derecho)
         if (player.isSneaking() && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
-            NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
-            var meta = item.getItemMeta();
-            meta.getPersistentDataContainer().remove(locKey);
-            item.setItemMeta(meta);
-
-            player.sendMessage(ChatColor.RED + "[Arquitecto] Selección cancelada. Puedes marcar otra ubicación.");
+            player.sendMessage(ChatColor.RED + "[Arquitecto] Selección cancelada. Puedes usar la pluma en otro lugar.");
             return;
         }
 
-        NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
-        boolean hasLocation = item.getItemMeta().getPersistentDataContainer().has(locKey, PersistentDataType.STRING);
-
-        // 1. Si NO tiene ubicación marcada y hace clic en un bloque: Marca la zona y muestra partículas
-        if (!hasLocation && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+        // Si hace clic derecho en un bloque: Fija la zona, muestra partículas y le indica cómo abrir el menú
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Block clickedBlock = event.getClickedBlock();
             if (clickedBlock == null) return;
 
@@ -80,37 +72,40 @@ public class SelectionListener implements Listener {
                 }
             }
 
-            // Guardar la ubicación en el ítem
-            String locData = baseLoc.getWorld().getName() + "," + baseLoc.getBlockX() + "," + baseLoc.getBlockY() + "," + baseLoc.getBlockZ();
-            var meta = item.getItemMeta();
-            meta.getPersistentDataContainer().set(locKey, PersistentDataType.STRING, locData);
-            item.setItemMeta(meta);
-
-            // Mostrar partículas
+            // Mostrar partículas 3D durante 20 segundos
             startParticleTask(player, baseLoc, width, length, height, 20);
 
             player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
             player.sendMessage(ChatColor.GREEN + "✔ Perímetro de obra delimitado con partículas.");
             player.sendMessage(ChatColor.YELLOW + "▶ Mira bien el terreno desde la distancia.");
-            player.sendMessage(ChatColor.AQUA + "▶ Haz clic derecho otra vez (al aire o bloque) para abrir el menú de confirmación.");
+            player.sendMessage(ChatColor.AQUA + "▶ Cuando estés listo, HAZ CLIC DERECHO de nuevo con la pluma para abrir el menú de confirmación.");
             player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
+
+            // Guardar la ubicación elegida temporalmente en el ítem para reutilización
+            NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
+            String locData = baseLoc.getWorld().getName() + "," + baseLoc.getBlockX() + "," + baseLoc.getBlockY() + "," + baseLoc.getBlockZ();
+            
+            var meta = item.getItemMeta();
+            meta.getPersistentDataContainer().set(locKey, PersistentDataType.STRING, locData);
+            item.setItemMeta(meta);
             return;
         }
 
-        // 2. Si YA tiene la ubicación marcada y vuelve a hacer clic: Abre el menú de confirmación
-        if (hasLocation && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
-            String locRaw = item.getItemMeta().getPersistentDataContainer().get(locKey, PersistentDataType.STRING);
-            String[] parts = locRaw.split(",");
-            Location targetLoc = new Location(
-                org.bukkit.Bukkit.getWorld(parts[0]),
-                Double.parseDouble(parts[1]),
-                Double.parseDouble(parts[2]),
-                Double.parseDouble(parts[3])
-            );
+        // Si ya tenía la zona marcada y vuelve a hacer Clic Derecho (al aire o a un bloque): Abre el menú
+        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
+            if (item.getItemMeta().getPersistentDataContainer().has(locKey, PersistentDataType.STRING)) {
+                String locRaw = item.getItemMeta().getPersistentDataContainer().get(locKey, PersistentDataType.STRING);
+                String[] parts = locRaw.split(",");
+                Location targetLoc = new Location(
+                    org.bukkit.Bukkit.getWorld(parts[0]),
+                    Double.parseDouble(parts[1]),
+                    Double.parseDouble(parts[2]),
+                    Double.parseDouble(parts[3])
+                );
 
-            ConfirmMenu.openConfirmMenu(plugin, player, idDiseno, targetLoc);
-        } else if (!hasLocation) {
-            player.sendMessage(ChatColor.YELLOW + "[Arquitecto] Haz clic derecho en un bloque primero para marcar la zona.");
+                ConfirmMenu.openConfirmMenu(plugin, player, idDiseno, targetLoc);
+            }
         }
     }
 
