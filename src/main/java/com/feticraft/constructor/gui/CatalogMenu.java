@@ -29,13 +29,11 @@ public class CatalogMenu implements Listener {
         this.plugin = plugin;
     }
 
-    // Método para abrir el catálogo desde el comando o NPC (pasando solo el jugador)
     public static void openCatalog(Player player) {
         ConstructorFeticraftPlugin pl = ConstructorFeticraftPlugin.getPlugin(ConstructorFeticraftPlugin.class);
         openCatalog(pl, player);
     }
 
-    // Método principal para abrir el catálogo
     public static void openCatalog(ConstructorFeticraftPlugin pl, Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
 
@@ -70,7 +68,11 @@ public class CatalogMenu implements Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().getTitle() == null || !event.getView().getTitle().equals(MENU_TITLE)) {
+        if (event.getView().getTitle() == null) {
+            return;
+        }
+
+        if (!event.getView().getTitle().equals(MENU_TITLE)) {
             return;
         }
 
@@ -81,7 +83,6 @@ public class CatalogMenu implements Listener {
             return;
         }
 
-        // Obtener plugin de forma segura
         ConstructorFeticraftPlugin pl = (plugin != null) ? plugin : ConstructorFeticraftPlugin.getPlugin(ConstructorFeticraftPlugin.class);
 
         NamespacedKey key = new NamespacedKey(pl, "catalog_id");
@@ -102,7 +103,6 @@ public class CatalogMenu implements Listener {
             nombreDiseno = catalog.getString("disenos." + idDiseno + ".nombre", idDiseno);
         }
 
-        // Cobro con Vault
         Economy econ = pl.getEconomy();
         if (econ != null) {
             if (econ.has(player, precio)) {
@@ -115,7 +115,6 @@ public class CatalogMenu implements Listener {
             }
         }
 
-        // Entregar la pluma del arquitecto
         ItemStack feather = new ItemStack(Material.FEATHER);
         ItemMeta featherMeta = feather.getItemMeta();
         if (featherMeta != null) {
