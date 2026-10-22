@@ -1,144 +1,136 @@
-package com.feticraft.constructor.selection;
+package com.feticraft.constructor;
 
-import com.feticraft.constructor.ConstructorFeticraftPlugin;
-import com.feticraft.constructor.gui.ConfirmMenu;
+import com.feticraft.constructor.builder.BuildingExecutor;
+import com.feticraft.constructor.gui.CatalogMenu;
+import com.feticraft.constructor.gui.MenuListener;
+import com.feticraft.constructor.selection.SelectionListener;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
-import org.bukkit.block.Block;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.entity.Villager;
+import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
+public final class ConstructorFeticraftPlugin extends JavaPlugin implements CommandExecutor {
 
-public class SelectionListener implements Listener {
+    private static ConstructorFeticraftPlugin instance;
+    private static Economy economy = null;
 
-    private final ConstructorFeticraftPlugin plugin;
+    @Override
+    public void onEnable() {
+        instance = this;
 
-    public SelectionListener(ConstructorFeticraftPlugin plugin) {
-        this.plugin = plugin;
+        saveDefaultConfig();
+
+        if (!setupEconomy()) {
+            getLogger().warning("¡Vault no encontrado o sin plugin de economía! El sistema de pago por construcciones estará desactivado.");
+        } else {
+            getLogger().info("¡Economía de Vault vinculada correctamente!");
+        }
+
+        if (getCommand("constructor") != null) {
+            getCommand("constructor").setExecutor(this);
+        }
+        
+        // Registramos todos los listeners necesarios para que funcione el menú y la pluma
+        getServer().getPluginManager().registerEvents(new MenuListener(this), this);
+        getServer().getPluginManager().registerEvents(new CatalogMenu(this), this);
+        getServer().getPluginManager().registerEvents(new SelectionListener(this), this);
+
+        getLogger().info("ConstructorFeticraft ha sido habilitado correctamente.");
     }
 
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        Player player = event.getPlayer();
-        ItemStack item = event.getItem();
-
-        if (item == null || item.getType() == org.bukkit.Material.AIR || !item.hasItemMeta()) {
-            return;
-        }
-
-        NamespacedKey key = new NamespacedKey(plugin, "selected_building_id");
-        if (!item.getItemMeta().getPersistentDataContainer().has(key, PersistentDataType.STRING)) {
-            return;
-        }
-
-        event.setCancelled(true);
-
-        String idDiseno = item.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
-
-        // Cancelar si el jugador está agachado (Shift + Clic Derecho)
-        if (player.isSneaking() && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
-            player.sendMessage(ChatColor.RED + "[Arquitecto] Selección cancelada. Puedes usar la pluma en otro lugar.");
-            return;
-        }
-
-        // Si hace clic derecho en un bloque: Fija la zona, muestra partículas y le indica cómo abrir el menú
-        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            Block clickedBlock = event.getClickedBlock();
-            if (clickedBlock == null) return;
-
-            Location baseLoc = clickedBlock.getLocation().add(0, 1, 0);
-
-            int width = 7;
-            int length = 7;
-            int height = 6;
-
-            File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
-            if (catalogFile.exists()) {
-                YamlConfiguration catalog = YamlConfiguration.loadConfiguration(catalogFile);
-                if (catalog.contains("disenos." + idDiseno)) {
-                    width = catalog.getInt("disenos." + idDiseno + ".dimensiones.ancho", 7);
-                    length = catalog.getInt("disenos." + idDiseno + ".dimensiones.largo", 7);
-                    height = catalog.getInt("disenos." + idDiseno + ".dimensiones.alto", 6);
-                }
-            }
-
-            // Mostrar partículas 3D durante 20 segundos
-            startParticleTask(player, baseLoc, width, length, height, 20);
-
-            player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
-            player.sendMessage(ChatColor.GREEN + "✔ Perímetro de obra delimitado con partículas.");
-            player.sendMessage(ChatColor.YELLOW + "▶ Mira bien el terreno desde la distancia.");
-            player.sendMessage(ChatColor.AQUA + "▶ Cuando estés listo, HAZ CLIC DERECHO de nuevo con la pluma para abrir el menú de confirmación.");
-            player.sendMessage(ChatColor.GOLD + "--------------------------------------------------");
-
-            // Guardar la ubicación elegida temporalmente en el ítem para reutilización
-            NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
-            String locData = baseLoc.getWorld().getName() + "," + baseLoc.getBlockX() + "," + baseLoc.getBlockY() + "," + baseLoc.getBlockZ();
-            
-            var meta = item.getItemMeta();
-            meta.getPersistentDataContainer().set(locKey, PersistentDataType.STRING, locData);
-            item.setItemMeta(meta);
-            return;
-        }
-
-        // Si ya tenía la zona marcada y vuelve a hacer Clic Derecho (al aire o a un bloque): Abre el menú
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            NamespacedKey locKey = new NamespacedKey(plugin, "marked_location");
-            if (item.getItemMeta().getPersistentDataContainer().has(locKey, PersistentDataType.STRING)) {
-                String locRaw = item.getItemMeta().getPersistentDataContainer().get(locKey, PersistentDataType.STRING);
-                String[] parts = locRaw.split(",");
-                Location targetLoc = new Location(
-                    org.bukkit.Bukkit.getWorld(parts[0]),
-                    Double.parseDouble(parts[1]),
-                    Double.parseDouble(parts[2]),
-                    Double.parseDouble(parts[3])
-                );
-
-                ConfirmMenu.openConfirmMenu(plugin, player, idDiseno, targetLoc);
-            }
-        }
+    @Override
+    public void onDisable() {
+        instance = null;
+        getLogger().info("ConstructorFeticraft ha sido deshabilitado.");
     }
 
-    private void startParticleTask(Player player, Location corner, int width, int length, int height, int seconds) {
-        new BukkitRunnable() {
-            int ticksRun = 0;
-            final int maxTicks = seconds * 20;
+    public static ConstructorFeticraftPlugin getInstance() {
+        return instance;
+    }
 
-            @Override
-            public void run() {
-                if (ticksRun >= maxTicks || !player.isOnline()) {
-                    cancel();
-                    return;
-                }
+    private boolean setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+            return false;
+        }
+        RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) {
+            return false;
+        }
+        economy = rsp.getProvider();
+        return economy != null;
+    }
 
-                for (double x = 0; x <= width; x += 1.0) {
-                    for (double z = 0; z <= length; z += 1.0) {
-                        if (x == 0 || x == width || z == 0 || z == length) {
-                            player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, 0.1, z), 1, 0, 0, 0, 0);
-                            player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, height, z), 1, 0, 0, 0, 0);
-                        }
-                    }
-                }
+    public Economy getEconomy() {
+        return economy;
+    }
 
-                for (double y = 0; y <= height; y += 1.0) {
-                    player.spawnParticle(Particle.FLAME, corner.clone().add(0, y, 0), 1, 0, 0, 0, 0);
-                    player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, 0), 1, 0, 0, 0, 0);
-                    player.spawnParticle(Particle.FLAME, corner.clone().add(0, y, length), 1, 0, 0, 0, 0);
-                    player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, length), 1, 0, 0, 0, 0);
-                }
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Este comando solo lo puede usar un jugador.");
+            return true;
+        }
 
-                ticksRun += 10;
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            if (!player.hasPermission("constructorfeticraft.admin")) {
+                player.sendMessage(ChatColor.RED + "No tienes permiso para recargar la configuración.");
+                return true;
             }
-        }.runTaskTimer(plugin, 0L, 10L);
+            reloadConfig();
+            player.sendMessage(ChatColor.GREEN + "[ConstructorFeticraft] Configuración recargada correctamente.");
+            return true;
+        }
+
+        if (args.length > 0 && args[0].equalsIgnoreCase("stop")) {
+            BuildingExecutor.togglePause(player);
+            return true;
+        }
+
+        if (args.length > 0 && args[0].equalsIgnoreCase("cancelar")) {
+            boolean cancelled = BuildingExecutor.cancelBuilding(player);
+            if (!cancelled) {
+                player.sendMessage(ChatColor.RED + "No tienes ninguna construcción en curso para cancelar.");
+            }
+            return true;
+        }
+
+        if (args.length > 0 && args[0].equalsIgnoreCase("crear")) {
+            if (!player.hasPermission("constructorfeticraft.admin")) {
+                player.sendMessage(ChatColor.RED + "No tienes permisos para crear al Arquitecto.");
+                return true;
+            }
+
+            Location loc = player.getLocation();
+            if (!loc.getChunk().isLoaded()) {
+                loc.getChunk().load();
+            }
+
+            Villager villager = loc.getWorld().spawn(loc, Villager.class, v -> {
+                v.setProfession(Villager.Profession.LIBRARIAN);
+                v.setVillagerType(Villager.Type.SNOW);
+                v.setCustomName(ChatColor.GOLD + "Arquitecto Feticraft");
+                v.setCustomNameVisible(true);
+                v.setAI(false);
+                v.setInvulnerable(true);
+                v.setCollidable(false);
+                v.setSilent(true);
+            });
+
+            if (villager != null && villager.isValid()) {
+                player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Has creado al Arquitecto Feticraft con éxito en esta ubicación!");
+            } else {
+                player.sendMessage(ChatColor.RED + "[Arquitecto] Error: El servidor o una protección ha bloqueado la creación del NPC.");
+            }
+            return true;
+        }
+
+        CatalogMenu.openCatalog(player);
+        return true;
     }
 }
