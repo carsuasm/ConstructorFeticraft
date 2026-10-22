@@ -3,7 +3,7 @@ package com.feticraft.constructor;
 import com.feticraft.constructor.builder.BuildingExecutor;
 import com.feticraft.constructor.gui.CatalogMenu;
 import com.feticraft.constructor.gui.MenuListener;
-import com.feticraft.constructor.listeners.SelectionListener; // Asegúrate de ajustar esta ruta si tu SelectionListener está en otra carpeta
+import com.feticraft.constructor.selection.SelectionListener;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -36,7 +36,7 @@ public final class ConstructorFeticraftPlugin extends JavaPlugin implements Comm
             getCommand("constructor").setExecutor(this);
         }
         
-        // Registramos los listeners: Menú, Catálogo y la Pluma de Selección
+        // Registramos todos los listeners correctamente
         getServer().getPluginManager().registerEvents(new MenuListener(this), this);
         getServer().getPluginManager().registerEvents(new CatalogMenu(this), this);
         getServer().getPluginManager().registerEvents(new SelectionListener(this), this);
