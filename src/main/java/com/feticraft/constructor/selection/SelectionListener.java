@@ -49,26 +49,27 @@ public class SelectionListener implements Listener {
             Location baseLoc = clickedBlock.getLocation().add(0, 1, 0);
             String idDiseno = item.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
 
-            // Leer dimensiones reales desde catalogo.yml (con un tamaño generoso por defecto si no se encuentran)
-            int width = 12;   // Ancho predeterminado grande para una casa
-            int length = 12;  // Largo predeterminado grande
-            int height = 8;   // Altura de 2 pisos / techos altos
+            // Valores por defecto de emergencia por si el archivo fallara
+            int width = 5;
+            int length = 5;
+            int height = 5;
 
+            // Leer las dimensiones EXACTAS del diseño desde catalogo.yml usando el ID real
             File catalogFile = new File(plugin.getDataFolder(), "catalogo.yml");
             if (catalogFile.exists()) {
                 YamlConfiguration catalog = YamlConfiguration.loadConfiguration(catalogFile);
                 if (catalog.contains("disenos." + idDiseno)) {
-                    width = catalog.getInt("disenos." + idDiseno + ".dimensiones.ancho", 12);
-                    length = catalog.getInt("disenos." + idDiseno + ".dimensiones.largo", 12);
-                    height = catalog.getInt("disenos." + idDiseno + ".dimensiones.alto", 8);
+                    width = catalog.getInt("disenos." + idDiseno + ".dimensiones.ancho", 5);
+                    length = catalog.getInt("disenos." + idDiseno + ".dimensiones.largo", 5);
+                    height = catalog.getInt("disenos." + idDiseno + ".dimensiones.alto", 5);
                 }
             }
 
-            // Iniciar animación de partículas grandes durante 15 segundos
+            // Iniciar animación con las medidas exactas leídas del catálogo durante 15 segundos
             startParticleTask(player, baseLoc, width, length, height, 15);
 
             player.sendMessage(ChatColor.GOLD + "[Arquitecto] " + ChatColor.GREEN + "¡Ubicación de la obra fijada!");
-            player.sendMessage(ChatColor.YELLOW + "Mostrando perímetro de la casa (" + width + "x" + length + "x" + height + ") durante 15 segundos.");
+            player.sendMessage(ChatColor.YELLOW + "Mostrando perímetro exacto (" + width + " de ancho, " + length + " de largo, " + height + " de alto) durante 15 segundos.");
 
             // Retirar herramienta de marcado
             player.getInventory().removeItem(item);
@@ -87,20 +88,17 @@ public class SelectionListener implements Listener {
                     return;
                 }
 
-                // Dibujar aristas y contorno con separación fluida
+                // Dibujar suelo y techo adaptados al tamaño real
                 for (double x = 0; x <= width; x += 1.0) {
                     for (double z = 0; z <= length; z += 1.0) {
-                        // Solo los bordes externos para formar el cubo/perímetro de la casa
                         if (x == 0 || x == width || z == 0 || z == length) {
-                            // Suelo y esquinas inferiores
                             player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, 0.1, z), 1, 0, 0, 0, 0);
-                            // Techo y esquinas superiores
                             player.spawnParticle(Particle.HAPPY_VILLAGER, corner.clone().add(x, height, z), 1, 0, 0, 0, 0);
                         }
                     }
                 }
 
-                // Dibujar pilares en las 4 esquinas verticales para marcar la altura claramente
+                // Dibujar las 4 esquinas verticales con la altura exacta de la estructura
                 for (double y = 0; y <= height; y += 1.0) {
                     player.spawnParticle(Particle.FLAME, corner.clone().add(0, y, 0), 1, 0, 0, 0, 0);
                     player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, 0), 1, 0, 0, 0, 0);
@@ -108,7 +106,7 @@ public class SelectionListener implements Listener {
                     player.spawnParticle(Particle.FLAME, corner.clone().add(width, y, length), 1, 0, 0, 0, 0);
                 }
 
-                ticksRun += 10; // Actualizar cada medio segundo
+                ticksRun += 10;
             }
         }.runTaskTimer(plugin, 0L, 10L);
     }
